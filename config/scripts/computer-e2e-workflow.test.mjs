@@ -112,6 +112,23 @@ describe('computer-use e2e workflow', () => {
     }
   })
 
+  it('builds and tests the macOS helper on pull requests without TCC e2e', () => {
+    const workflow = parse(
+      readFileSync(join(projectDir, '.github/workflows/computer-e2e.yml'), 'utf8')
+    )
+    const job = workflow.jobs['mac-native-owner-smoke']
+    const runs = job.steps.map((step) => step.run).filter((run) => typeof run === 'string')
+
+    expect(job.if).toBe("github.event_name == 'pull_request'")
+    expect(job['runs-on']).toBe('macos-15')
+    expect(runs).toContain('pnpm bench:macos-computer-helper-owner-loss --expect reaped --trials 1')
+    expect(runs).toContain('pnpm verify:computer-native')
+    expect(runs.join('\n')).not.toContain('test:e2e:computer')
+    expect(workflow.on.pull_request.paths).toContain(
+      'config/scripts/macos-computer-helper-owner-loss-benchmark.mjs'
+    )
+  })
+
   it('boots the built daemon under plain Node in the PR native-smoke job after the main build', () => {
     const workflow = parse(
       readFileSync(join(projectDir, '.github/workflows/computer-e2e.yml'), 'utf8')

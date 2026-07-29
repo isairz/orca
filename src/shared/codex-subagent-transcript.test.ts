@@ -140,6 +140,43 @@ describe('Codex subagent transcript reconciliation', () => {
     }
   })
 
+  it('bounds child rollout discovery work per reconciliation tick', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'codex-subagent-transcript-'))
+    dirs.push(dir)
+    const parentPath = join(dir, 'rollout-parent.jsonl')
+    const activities = Array.from({ length: 5_000 }, (_, index) => ({
+      type: 'event_msg',
+      payload: {
+        type: 'sub_agent_activity',
+        occurred_at_ms: 1234,
+        agent_thread_id: `child-${index}`,
+        agent_path: '/root/sidebar_repro',
+        kind: 'started'
+      }
+    }))
+    writeFileSync(parentPath, jsonl(activities))
+    for (let index = 0; index < 4_095; index += 1) {
+      writeFileSync(join(dir, `rollout-decoy-${index}.jsonl`), '')
+    }
+    const state = createCodexSubagentTranscriptState()
+    const roster: CodexSubagentRoster = new Map()
+
+    reconcileCodexSubagentTranscript(state, roster, parentPath)
+
+    const firstTickExamined = Array.from(state.subagents.values()).filter(
+      (tracked) => tracked.unresolvedSince !== undefined
+    )
+    expect(firstTickExamined).toHaveLength(64)
+    expect(state.subagents.size).toBe(5_000)
+
+    reconcileCodexSubagentTranscript(state, roster, parentPath)
+
+    const secondTickExamined = Array.from(state.subagents.values()).filter(
+      (tracked) => tracked.unresolvedSince !== undefined
+    )
+    expect(secondTickExamined).toHaveLength(128)
+  })
+
   it('removes a child when Codex reports it interrupted', () => {
     const dir = mkdtempSync(join(tmpdir(), 'codex-subagent-transcript-'))
     dirs.push(dir)

@@ -10,6 +10,7 @@ import {
 const TRANSCRIPT_READ_MAX_BYTES = 1024 * 1024
 const TRANSCRIPT_LINE_MAX_BYTES = 256 * 1024
 const TRANSCRIPT_DIRECTORY_MAX_ENTRIES = 4096
+const CHILD_RECONCILE_MAX_PER_TICK = 64
 // Why: retire a child whose rollout stays unreadable this long, else a deleted/never-written file pins a phantom row forever.
 const CHILD_UNREADABLE_GRACE_MS = 60_000
 const SAFE_THREAD_ID = /^[A-Za-z0-9-]{1,64}$/
@@ -29,6 +30,7 @@ type TrackedTranscriptSubagent = JsonlCursor & {
 export type CodexSubagentTranscriptState = {
   parent: JsonlCursor
   subagents: Map<string, TrackedTranscriptSubagent>
+  pendingReconcileIds: Set<string>
 }
 
 type JsonRecord = Record<string, unknown>
@@ -218,7 +220,8 @@ function childIsComplete(records: JsonRecord[]): boolean {
 export function createCodexSubagentTranscriptState(): CodexSubagentTranscriptState {
   return {
     parent: { offset: 0, carry: '' },
-    subagents: new Map()
+    subagents: new Map(),
+    pendingReconcileIds: new Set()
   }
 }
 
@@ -243,6 +246,7 @@ export function reconcileCodexSubagentTranscript(
     }
     state.parent = { filePath: normalizedPath, offset: 0, carry: '' }
     state.subagents.clear()
+    state.pendingReconcileIds.clear()
   }
   for (const recordValue of readJsonlCursor(state.parent) ?? []) {
     const activity = readActivity(recordValue)
@@ -252,6 +256,7 @@ export function reconcileCodexSubagentTranscript(
     if (activity.kind === 'interrupted') {
       finishCodexSubagent(roster, activity.id)
       state.subagents.delete(activity.id)
+      state.pendingReconcileIds.delete(activity.id)
       continue
     }
     const tracked = state.subagents.get(activity.id) ?? {
@@ -261,6 +266,7 @@ export function reconcileCodexSubagentTranscript(
     }
     tracked.description = activity.description ?? tracked.description
     state.subagents.set(activity.id, tracked)
+    state.pendingReconcileIds.add(activity.id)
     upsertCodexSubagent(
       roster,
       activity.id,
@@ -270,7 +276,16 @@ export function reconcileCodexSubagentTranscript(
   }
   const entriesByDirectory = new Map<string, string[]>()
   const now = Date.now()
-  for (const [id, tracked] of state.subagents) {
+  for (let examined = 0; examined < CHILD_RECONCILE_MAX_PER_TICK; examined += 1) {
+    const id = state.pendingReconcileIds.values().next().value
+    if (typeof id !== 'string') {
+      break
+    }
+    state.pendingReconcileIds.delete(id)
+    const tracked = state.subagents.get(id)
+    if (!tracked) {
+      continue
+    }
     if (!tracked.filePath) {
       tracked.filePath = resolveChildTranscript(
         normalizedPath,
@@ -285,11 +300,13 @@ export function reconcileCodexSubagentTranscript(
       tracked.filePath = undefined
       tracked.unresolvedSince ??= now
       if (now - tracked.unresolvedSince <= CHILD_UNREADABLE_GRACE_MS) {
+        state.pendingReconcileIds.add(id)
         continue
       }
     } else {
       tracked.unresolvedSince = undefined
       if (!childIsComplete(records)) {
+        state.pendingReconcileIds.add(id)
         continue
       }
     }

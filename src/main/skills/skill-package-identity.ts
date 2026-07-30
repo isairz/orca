@@ -191,12 +191,18 @@ export async function observeSkillPackage(
     // identity order must match the generator without locale-sensitive collation.
     entries.sort((left, right) => compareCodeUnits(left.name, right.name))
     for (const entry of entries) {
-      // Skipped before the case-fold map so a sidecar cannot manufacture a collision
-      // either, and before lstat so an unreadable one cannot fail the whole package.
-      if (isOsMetadataSkillEntryName(entry.name)) {
-        continue
-      }
       const absolutePath = join(directory, entry.name)
+      // Only a plain file is OS-authored, so the type decides and not the name alone: a
+      // directory or link wearing the name would otherwise hide a subtree from identity and
+      // slip past the link and special-file guards below. Decided before the case-fold map
+      // so two spellings of one sidecar cannot collide, and tolerant of a vanished entry so
+      // an unreadable sidecar cannot fail the whole package.
+      if (isOsMetadataSkillEntryName(entry.name)) {
+        const sidecarStat = await lstat(absolutePath).catch(() => null)
+        if (!sidecarStat || sidecarStat.isFile()) {
+          continue
+        }
+      }
       const relativePath = relative(packageRoot, absolutePath)
       if (
         isAbsolute(relativePath) ||

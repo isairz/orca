@@ -127,8 +127,8 @@ function gitTreeSha(entries) {
 // Why: kept in step with isOsMetadataSkillEntryName in src/main/skills/skill-package-identity.ts.
 // The scanner ignores these because the OS writes them into a live install; the generator
 // ignores them so a stray one in a working tree cannot be committed into the manifest as
-// content no user could ever match. Skipped rather than rejected: the file is gitignored and
-// not the developer's doing, so failing the build over it would be hostile.
+// content no user could ever match. Skipped rather than rejected: the file is not the
+// developer's doing, so failing the build over it would be hostile.
 const OS_METADATA_FILE_NAMES = new Set(['.ds_store', 'thumbs.db', 'ehthumbs.db', 'desktop.ini'])
 
 function isOsMetadataSkillEntryName(name) {
@@ -146,10 +146,15 @@ async function collectPackageFiles(packageRoot) {
     // package identity order must use the same locale-independent comparison.
     entries.sort((left, right) => compareCodeUnits(left.name, right.name))
     for (const entry of entries) {
-      if (isOsMetadataSkillEntryName(entry.name)) {
+      const absolutePath = path.join(directory, entry.name)
+      const fileStat = await lstat(absolutePath)
+      // Only a plain file is OS-authored, so the type decides and not the name alone: a
+      // directory or link wearing the name would otherwise drop its subtree out of the
+      // manifest and skip the guards below. Decided before the case-fold map so two
+      // spellings of one sidecar cannot collide.
+      if (isOsMetadataSkillEntryName(entry.name) && fileStat.isFile()) {
         continue
       }
-      const absolutePath = path.join(directory, entry.name)
       const relativePath = path.relative(packageRoot, absolutePath)
       assertSafeRelativePath(relativePath)
       const manifestPath = relativePath.split(path.sep).join('/')
@@ -159,7 +164,6 @@ async function collectPackageFiles(packageRoot) {
         throw new Error(`Case-colliding skill paths: ${collision} and ${manifestPath}`)
       }
       caseFoldedPaths.set(foldedPath, manifestPath)
-      const fileStat = await lstat(absolutePath)
       if (fileStat.isSymbolicLink()) {
         throw new Error(`Symlink is not allowed in a shipped skill: ${manifestPath}`)
       }

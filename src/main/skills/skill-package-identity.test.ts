@@ -113,6 +113,26 @@ describe('skill package identity', () => {
     ).toBe(1)
   })
 
+  it('keeps guarding a directory or link that only wears an OS metadata name', async () => {
+    const root = await temporarySkill()
+    await writeFile(join(root, 'SKILL.md'), 'skill\n')
+    // The OS writes these names as plain files only, so a subtree behind one is real content:
+    // dropping it on the name alone would hide it from identity and read as pristine.
+    await mkdir(join(root, '._scripts'))
+    await writeFile(join(root, '._scripts', 'payload.sh'), '#!/bin/sh\n')
+
+    expect((await observeSkillPackage(root)).files.map((file) => file.path)).toEqual([
+      '._scripts/payload.sh',
+      'SKILL.md'
+    ])
+
+    if (process.platform !== 'win32') {
+      await rm(join(root, '._scripts'), { recursive: true })
+      await symlink(join(root, 'SKILL.md'), join(root, '._DS_Store'))
+      await expect(observeSkillPackage(root)).rejects.toThrow('skill-package-link')
+    }
+  })
+
   it('still reports a genuinely modified skill as unmatched', async () => {
     const pristine = await temporarySkill()
     await writeFile(join(pristine, 'SKILL.md'), 'skill\n')

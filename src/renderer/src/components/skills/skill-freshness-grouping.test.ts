@@ -178,5 +178,46 @@ describe('groupSkillFreshness', () => {
     expect(chipFor(at('j', { status: 'unrecognized', topology: 'plugin-cache' }))).toBe(
       'plugin-cache'
     )
+    // Ownership outranks byte status: a project copy whose bytes match nothing known is
+    // the repo's content, not the user's drift, so it must not read "may be modified".
+    expect(chipFor(at('l', { status: 'unrecognized', topology: 'repo-scope' }))).toBe('in-a-repo')
+    // But a read failure outranks ownership, or that same rule would hide a real fault.
+    expect(chipFor(at('m', { status: 'inaccessible', topology: 'repo-scope' }))).toBe(
+      'inaccessible'
+    )
+  })
+
+  it('raises no group when every finding is project-owned', () => {
+    // Orca's updater only passes --global, so a project copy has no remedy; a row here
+    // would claim Orca considered an update it could never perform.
+    expect(
+      groupSkillFreshness(
+        [placement('computer-use', { status: 'unrecognized', topology: 'repo-scope' })],
+        []
+      )
+    ).toEqual([])
+    expect(
+      groupSkillFreshness(
+        [placement('computer-use', { status: 'outdated', topology: 'repo-scope' })],
+        []
+      )
+    ).toEqual([])
+  })
+
+  it('still lists a project copy inside a group another placement earned', () => {
+    const groups = groupSkillFreshness(
+      [
+        placement('computer-use', { status: 'outdated', topology: 'read-only' }),
+        placement('computer-use', {
+          status: 'unrecognized',
+          topology: 'repo-scope',
+          unresolvedPath: '/home/projects/work/.agents/skills/computer-use'
+        })
+      ],
+      []
+    )
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0]?.locations.map((location) => location.chip)).toContain('in-a-repo')
   })
 })

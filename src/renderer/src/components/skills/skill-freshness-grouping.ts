@@ -1,5 +1,7 @@
 import {
+  isOwnerManagedSkillScope,
   isSkillCopyNeedingAttention,
+  skillPlacementParticipatesInGlobalFreshness,
   type SkillFreshnessInstallation
 } from '../../../../shared/skill-freshness'
 
@@ -29,15 +31,20 @@ export type SkillFreshnessGroupModel = {
   locations: SkillLocationRow[]
 }
 
+// Precedence is explicit because one chip stands for two dimensions — who owns the copy,
+// and what its bytes look like:
+//   1. a read failure always reports the read failure, whoever owns the copy
+//   2. an owner-managed scope outranks byte status, because the owner's content is not
+//      the user's drift and Orca's global update never reaches it
+//   3. byte status last
+// Ordering 2 above 3 is the fix for a project copy being labelled "may be modified —
+// remove it"; keeping 1 above 2 stops that same rule hiding a genuine read failure.
 export function locationChip(installation: SkillFreshnessInstallation): SkillLocationChip | null {
-  if (installation.status === 'unrecognized' && installation.topology === 'plugin-cache') {
-    return 'plugin-cache'
-  }
-  if (installation.status === 'unrecognized') {
-    return 'unrecognized'
-  }
   if (installation.status === 'inaccessible') {
     return 'inaccessible'
+  }
+  if (!isOwnerManagedSkillScope(installation.topology) && installation.status === 'unrecognized') {
+    return 'unrecognized'
   }
   switch (installation.topology) {
     case 'independent-copy':
@@ -96,9 +103,16 @@ export function groupSkillFreshness(
   }
   const groups: SkillFreshnessGroupModel[] = []
   for (const [name, entries] of byName) {
+    // Why: the inclusion test only consults placements the global update can reach, so a
+    // skill whose only finding is a project-owned copy raises no row at all — a "Skipped"
+    // row would assert Orca considered an update it never could. Locations below are still
+    // listed in full, so a project copy stays visible whenever some other placement earns
+    // the group.
     if (
       !pinned.has(name) &&
-      !entries.some((entry) => entry.status === 'outdated' || isSkillCopyNeedingAttention(entry))
+      !entries
+        .filter(skillPlacementParticipatesInGlobalFreshness)
+        .some((entry) => entry.status === 'outdated' || isSkillCopyNeedingAttention(entry))
     ) {
       continue
     }

@@ -14192,7 +14192,8 @@
       },
       "tool": {
         "running": "Ejecutando…",
-        "result": "Resultado"
+        "result": "Resultado",
+        "showAllLines": "Show all lines"
       },
       "status": {
         "responding": "El agente está respondiendo"
@@ -14244,7 +14245,9 @@
         "allow": "Permitir",
         "deny": "Denegar"
       },
-      "launchPromptNotDelivered": "No entregado — revisa la terminal"
+      "launchPromptNotDelivered": "No entregado — revisa la terminal",
+      "fileLinkUnresolved": "Could not resolve that file path",
+      "fileLinkOutsideWorktree": "That file is outside the workspace"
     },
     "tab": {
       "bar": {

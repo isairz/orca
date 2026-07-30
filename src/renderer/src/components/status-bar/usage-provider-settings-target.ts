@@ -9,6 +9,7 @@ export function getUsageProviderAccountsSectionId(
     case 'codex':
       return 'accounts-codex'
     case 'antigravity':
+      // Why: Agy quota comes from a host-local process, not an Orca-managed account.
       return null
     case 'opencode-go':
       return 'accounts-opencode-go'

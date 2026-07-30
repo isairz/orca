@@ -179,10 +179,14 @@ async function discoverLsofEndpoints(): Promise<AgyQuotaEndpoint[]> {
     const listeners = parseLsofListeners(
       await runCommand('lsof', ['-nP', '-iTCP', '-sTCP:LISTEN', '-F', 'pcn'])
     ).filter(({ processName }) => /^(agy|language_?(?:server)?)$/i.test(processName))
-    const commandLines = new Map<number, string>()
-    for (const pid of new Set(listeners.map((listener) => listener.pid))) {
-      commandLines.set(pid, await runCommand('ps', ['-p', String(pid), '-o', 'command=']))
-    }
+    const commandLines = new Map(
+      await Promise.all(
+        [...new Set(listeners.map((listener) => listener.pid))].map(
+          async (pid) =>
+            [pid, await runCommand('ps', ['-p', String(pid), '-o', 'command='])] as const
+        )
+      )
+    )
     return listeners.flatMap<AgyQuotaEndpoint>(({ pid, processName, port }) => {
       const commandLine = commandLines.get(pid) ?? ''
       if (/^agy$/i.test(processName)) {

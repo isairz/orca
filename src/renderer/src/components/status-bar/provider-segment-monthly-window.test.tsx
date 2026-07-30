@@ -44,6 +44,27 @@ function grokMonthlyLimits(status: ProviderRateLimits['status']): ProviderRateLi
 }
 
 describe('ProviderSegment monthly window', () => {
+  it.each([
+    ['used', '8% used 5h'],
+    ['remaining', '92% left 5h']
+  ] as const)('shows Antigravity usage using the global %s option', async (display, expected) => {
+    const { ProviderSegment } = await import('./StatusBar')
+    const limits: ProviderRateLimits = {
+      provider: 'antigravity',
+      session: windowOf(7.59684, 300),
+      weekly: windowOf(1.26614, 10080),
+      updatedAt: Date.now(),
+      error: null,
+      status: 'ok'
+    }
+
+    const markup = renderToStaticMarkup(
+      <ProviderSegment p={limits} compact={false} display={display} mode="compact" />
+    )
+
+    expect(markup).toContain(expected)
+  })
+
   it('renders a monthly-only snapshot in the chip instead of a bare icon', async () => {
     const { ProviderSegment } = await import('./StatusBar')
 
@@ -94,7 +115,7 @@ describe('ProviderSegment monthly window', () => {
   it('selects a named bucket as the tightest provider window', async () => {
     const { ProviderSegment } = await import('./StatusBar')
     const limits: ProviderRateLimits = {
-      provider: 'gemini',
+      provider: 'opencode-go',
       session: null,
       weekly: null,
       buckets: [

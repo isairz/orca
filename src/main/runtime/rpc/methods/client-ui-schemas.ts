@@ -59,7 +59,6 @@ const AgentActivityDisplayMode = z.enum(['compact', 'full'])
 const StatusBarItem = z.enum([
   'claude',
   'codex',
-  'gemini',
   'antigravity',
   'opencode-go',
   'kimi',

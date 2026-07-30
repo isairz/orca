@@ -35,7 +35,7 @@ function providerMaxUsed(sections: UsageSection[]): number {
     : 0
 }
 
-// Buckets (Gemini Flash/Pro) keep their model name; windows use their duration.
+// Named model buckets keep their model name; fixed provider windows use their duration.
 function shortLabel(
   p: ProviderRateLimits,
   section: UsageSection,

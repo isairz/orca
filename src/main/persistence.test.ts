@@ -5395,6 +5395,21 @@ describe('Store', () => {
     expect(persisted.settings).not.toHaveProperty('terminalScrollbackBytes')
   })
 
+  it('removes the deprecated Gemini CLI OAuth usage setting on load', async () => {
+    writeDataFile({
+      settings: {
+        geminiCliOAuthEnabled: true
+      }
+    })
+
+    const store = await createStore()
+
+    expect(store.getSettings()).not.toHaveProperty('geminiCliOAuthEnabled')
+    store.flush()
+    const persisted = readDataFile() as { settings?: Record<string, unknown> }
+    expect(persisted.settings).not.toHaveProperty('geminiCliOAuthEnabled')
+  })
+
   it('migrates legacy terminal scrollback byte presets by intent', async () => {
     writeDataFile({
       settings: {

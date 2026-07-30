@@ -615,6 +615,15 @@ function stripLegacyTerminalScrollbackBytes(
   return rest
 }
 
+function stripDeprecatedGeminiCliOAuthSetting(
+  settings: Partial<GlobalSettings> | undefined
+): Partial<GlobalSettings> {
+  const { geminiCliOAuthEnabled: _deprecatedGeminiCliOAuthEnabled, ...rest } = (settings ??
+    {}) as Partial<GlobalSettings> & { geminiCliOAuthEnabled?: unknown }
+  void _deprecatedGeminiCliOAuthEnabled
+  return rest
+}
+
 function migrateTerminalScrollbackRows(settings: unknown): {
   rows: number
   needsSave: boolean
@@ -3130,6 +3139,12 @@ export class Store {
           parsed.settings?.sourceControlGroupOrder
         )
         if (
+          parsed.settings &&
+          Object.prototype.hasOwnProperty.call(parsed.settings, 'geminiCliOAuthEnabled')
+        ) {
+          this.loadNeedsSave = true
+        }
+        if (
           parsed.settings?.sourceControlGroupOrder !== undefined &&
           parsed.settings.sourceControlGroupOrder !== normalizedSourceControlGroupOrder
         ) {
@@ -3156,7 +3171,9 @@ export class Store {
           settings: {
             ...defaults.settings,
             // Why (#7977): keep persisted experimentalNewWorktreeCardStyle:true — v1.4.130's onboarding auto-wrote it as a plain boolean, so it's indistinguishable from a real opt-in; only the default changed.
-            ...stripLegacyTerminalScrollbackBytes(parsed.settings),
+            ...stripDeprecatedGeminiCliOAuthSetting(
+              stripLegacyTerminalScrollbackBytes(parsed.settings)
+            ),
             prBotAuthorOverrides: normalizePRBotAuthorOverrides(
               parsed.settings?.prBotAuthorOverrides
             ),
@@ -5409,7 +5426,9 @@ export class Store {
     updates: Partial<GlobalSettings>,
     options: { notifyListeners?: boolean; originWebContentsId?: number } = {}
   ): GlobalSettings {
-    const sanitizedUpdates = stripLegacyTerminalScrollbackBytes(updates)
+    const sanitizedUpdates = stripDeprecatedGeminiCliOAuthSetting(
+      stripLegacyTerminalScrollbackBytes(updates)
+    )
     // Why: coerce to boolean here (not the IPC edge) so every write path is covered and a truthy non-bool can't persist as "tray-minimize on".
     if ('minimizeToTrayOnClose' in updates) {
       sanitizedUpdates.minimizeToTrayOnClose = updates.minimizeToTrayOnClose === true

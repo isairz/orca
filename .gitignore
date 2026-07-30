@@ -44,9 +44,9 @@ package-lock.json
 *~
 
 # OS
-# Keep these in step with isOsMetadataSkillEntryName (skill-package-identity.ts): both
-# skill-identity walkers ignore these names, and the disk walker's skip only stays
-# symmetric with the git-tree walker while none of them can be committed.
+# Keep these in step with isOsMetadataSkillEntryName (skill-package-identity.ts): both disk
+# walkers skip a plain file with one of these names, the git-tree producer does not, and
+# ignoring them here is what keeps `git add -A` from committing a stray one.
 *.stackdump
 .DS_Store
 ._*

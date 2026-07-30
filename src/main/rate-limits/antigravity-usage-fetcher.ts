@@ -4,18 +4,17 @@ import { homedir } from 'node:os'
 import path from 'node:path'
 import { net } from 'electron'
 import type { ProviderRateLimits, RateLimitWindow } from '../../shared/rate-limit-types'
+import {
+  deduplicateAgyQuotaEndpoints,
+  inspectAgyProcessCommands,
+  type AgyQuotaEndpoint
+} from './antigravity-endpoint-selection'
 
 const COMMAND_TIMEOUT_MS = 4_000
 const FETCH_TIMEOUT_MS = 5_000
 const LOG_PREFIX_BYTES = 16 * 1024
 const SUMMARY_PATH = '/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary'
 const AGY_LOG_DIR = path.join(homedir(), '.gemini', 'antigravity-cli', 'log')
-
-export type AgyQuotaEndpoint = {
-  pid: number
-  port: number
-  csrfToken: string | null
-}
 
 type AgySummaryBucket = {
   bucketId?: unknown
@@ -179,13 +178,9 @@ async function discoverLsofEndpoints(): Promise<AgyQuotaEndpoint[]> {
     const listeners = parseLsofListeners(
       await runCommand('lsof', ['-nP', '-iTCP', '-sTCP:LISTEN', '-F', 'pcn'])
     ).filter(({ processName }) => /^(agy|language_?(?:server)?)$/i.test(processName))
-    const commandLines = new Map(
-      await Promise.all(
-        [...new Set(listeners.map((listener) => listener.pid))].map(
-          async (pid) =>
-            [pid, await runCommand('ps', ['-p', String(pid), '-o', 'command='])] as const
-        )
-      )
+    const commandLines = await inspectAgyProcessCommands(
+      new Set(listeners.map((listener) => listener.pid)),
+      (pid) => runCommand('ps', ['-p', String(pid), '-o', 'command='])
     )
     return listeners.flatMap<AgyQuotaEndpoint>(({ pid, processName, port }) => {
       const commandLine = commandLines.get(pid) ?? ''
@@ -208,15 +203,7 @@ async function discoverLsofEndpoints(): Promise<AgyQuotaEndpoint[]> {
 
 export async function discoverAgyQuotaEndpoints(): Promise<AgyQuotaEndpoint[]> {
   const endpoints = [...(await discoverLogEndpoints()), ...(await discoverLsofEndpoints())]
-  const seen = new Set<string>()
-  return endpoints.filter((endpoint) => {
-    const key = `${endpoint.pid}:${endpoint.port}`
-    if (seen.has(key)) {
-      return false
-    }
-    seen.add(key)
-    return true
-  })
+  return deduplicateAgyQuotaEndpoints(endpoints)
 }
 
 function isSummaryBucket(value: unknown): value is AgySummaryBucket {

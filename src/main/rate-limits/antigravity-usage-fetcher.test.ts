@@ -11,6 +11,10 @@ import {
   parseCsrfToken,
   parseLsofListeners
 } from './antigravity-usage-fetcher'
+import {
+  deduplicateAgyQuotaEndpoints,
+  inspectAgyProcessCommands
+} from './antigravity-endpoint-selection'
 
 function response(body: unknown, status = 200): Response {
   return {
@@ -73,6 +77,28 @@ I0730 16:55:25.554099 27262 server.go:568] Language server listening on random p
   it('reads both supported CSRF argument forms', () => {
     expect(parseCsrfToken('language_server --csrf_token abc-123 --standalone')).toBe('abc-123')
     expect(parseCsrfToken('language_server --csrf_token=def-456')).toBe('def-456')
+  })
+
+  it('keeps valid process commands when another process exits during inspection', async () => {
+    const inspect = vi.fn(async (pid: number) => {
+      if (pid === 27451) {
+        throw new Error('process exited')
+      }
+      return `agy --pid ${pid}`
+    })
+
+    await expect(inspectAgyProcessCommands([27262, 27451], inspect)).resolves.toEqual(
+      new Map([[27262, 'agy --pid 27262']])
+    )
+  })
+
+  it('prefers a CSRF-authenticated duplicate endpoint', () => {
+    expect(
+      deduplicateAgyQuotaEndpoints([
+        { pid: 27451, port: 50610, csrfToken: null },
+        { pid: 27451, port: 50610, csrfToken: 'csrf-token' }
+      ])
+    ).toEqual([{ pid: 27451, port: 50610, csrfToken: 'csrf-token' }])
   })
 })
 

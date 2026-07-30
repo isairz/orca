@@ -18,6 +18,27 @@ export type ObservedSkillPackage = {
   observedGitTreeSha: string
 }
 
+// Why: package identity compares a live user directory against a tree the generator read
+// from a clean checkout, so anything the OS deposits on its own counts as drift the user
+// never caused. One Finder visit writes .DS_Store, and that alone made the copy
+// 'unrecognized' — reported as "may be modified", left out of the update, and unfixable by
+// running it, since the updater compares its lock to the source and never reads disk.
+//
+// Only OS-authored names belong here. Tolerating unexpected files in general would let a
+// modified skill pass: the entry is safe precisely because an official SKILL.md never
+// references these, so no agent can be routed into one. Mirrored in
+// config/scripts/generate-skill-bundle-manifest.mjs so neither side of the comparison can
+// bake one in. Deliberately NOT extended to mode bits — that would weaken identity for
+// real scripts.
+const OS_METADATA_FILE_NAMES = new Set(['.ds_store', 'thumbs.db', 'ehthumbs.db', 'desktop.ini'])
+
+export function isOsMetadataSkillEntryName(name: string): boolean {
+  const folded = name.toLocaleLowerCase('en-US')
+  // AppleDouble sidecars ('._SKILL.md') appear whenever a skill is copied through a
+  // filesystem that cannot hold macOS metadata inline.
+  return OS_METADATA_FILE_NAMES.has(folded) || folded.startsWith('._')
+}
+
 export const SKILL_PACKAGE_OBSERVATION_LIMITS = {
   maximumDepth: 16,
   maximumEntries: 2_048,
@@ -170,6 +191,11 @@ export async function observeSkillPackage(
     // identity order must match the generator without locale-sensitive collation.
     entries.sort((left, right) => compareCodeUnits(left.name, right.name))
     for (const entry of entries) {
+      // Skipped before the case-fold map so a sidecar cannot manufacture a collision
+      // either, and before lstat so an unreadable one cannot fail the whole package.
+      if (isOsMetadataSkillEntryName(entry.name)) {
+        continue
+      }
       const absolutePath = join(directory, entry.name)
       const relativePath = relative(packageRoot, absolutePath)
       if (

@@ -436,6 +436,34 @@ describe('skill bundle manifest generator', () => {
     )
   })
 
+  it('ignores OS-authored sidecars a working tree may carry', async () => {
+    const packageRoot = await createPackage()
+    await writeFile(path.join(packageRoot, 'SKILL.md'), 'demo skill\n')
+    await mkdir(path.join(packageRoot, 'references'))
+    await writeFile(path.join(packageRoot, 'references', 'guide.md'), 'nested\n')
+    const pristine = await collectPackageFiles(packageRoot)
+    expect(pristine.map((file) => file.path)).toEqual(['SKILL.md', 'references/guide.md'])
+    // Finder writes .DS_Store into any browsed folder, and it is gitignored — so without
+    // this the committed artifacts read as stale and lint fails for that developer, while
+    // the scanner would have no snapshot a real install could match.
+    await writeFile(path.join(packageRoot, '.DS_Store'), Buffer.from([0, 1, 2, 3]))
+    await writeFile(path.join(packageRoot, '._SKILL.md'), Buffer.from([0, 5]))
+    await writeFile(path.join(packageRoot, 'Thumbs.db'), Buffer.from([9]))
+    // Nested folders get browsed too, and a sidecar there shifts the same index-aligned list.
+    await writeFile(path.join(packageRoot, 'references', '.DS_Store'), Buffer.from([7]))
+
+    expect(await collectPackageFiles(packageRoot)).toEqual(pristine)
+  })
+
+  it('still records an unexpected file that is not OS metadata', async () => {
+    const packageRoot = await createPackage()
+    await writeFile(path.join(packageRoot, 'payload.sh'), 'echo hi\n')
+
+    expect((await collectPackageFiles(packageRoot)).map((file) => file.path)).toContain(
+      'payload.sh'
+    )
+  })
+
   it('computes the same Git tree identity as Git', async () => {
     const packageRoot = path.resolve('skills', 'orca-cli')
     const files = await collectPackageFiles(packageRoot)

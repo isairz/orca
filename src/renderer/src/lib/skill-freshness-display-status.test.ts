@@ -270,4 +270,14 @@ describe('hasSkillCopyNeedingAttention', () => {
     expect(getSkillFreshnessDisplayStatus(value, SKILL_NAME)).toBe('installed')
     expect(hasSkillCopyNeedingAttention(value, SKILL_NAME)).toBe(false)
   })
+
+  // Why: a project copy is not the presence that makes the cache fault this skill's
+  // problem either. The two helpers have to read the same placements, or the badge calls
+  // a repo-only skill merely installed while the review affordance flags it amber.
+  it('does not treat a project copy as the presence that owns a cache fault', () => {
+    const value = inventory([repoPlacement()], [], [scanIssue('io-error')])
+
+    expect(getSkillFreshnessDisplayStatus(value, SKILL_NAME)).toBe('installed')
+    expect(hasSkillCopyNeedingAttention(value, SKILL_NAME)).toBe(false)
+  })
 })

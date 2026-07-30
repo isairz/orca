@@ -503,6 +503,40 @@ describe('SkillFreshnessUpdateDialog', () => {
     )
   })
 
+  it('keeps the stale-record remedy when a project copy is listed beside it', async () => {
+    // The same stale-record row as above, plus the user's own project copy. That copy is
+    // listed but was never judged, so letting it explain the skip replaced the only
+    // runnable command with advice about a copy the user never asked Orca to update.
+    mocks.inventory = {
+      schemaVersion: 1,
+      installations: [
+        placement('orchestration'),
+        placement('orchestration', {
+          rootId: 'repo-work',
+          sourceKind: 'repo',
+          topology: 'repo-scope',
+          status: 'unrecognized',
+          unresolvedPath: '/home/projects/work/.agents/skills/orchestration',
+          resolvedPath: '/home/projects/work/.agents/skills/orchestration',
+          physicalIdentity: 'physical-repo-orchestration'
+        })
+      ],
+      eligibleUpdateNames: [],
+      scanIssues: [],
+      scannedAt: 6
+    }
+    await renderDialog()
+    await openViaRequest()
+
+    const row = container?.querySelector('[data-skill-row="orchestration"]')
+    expect(row?.textContent).toContain(
+      'npx skills add https://github.com/stablyai/orca --skill orchestration --global'
+    )
+    expect(row?.textContent).not.toContain('This is a project skill, not a global one')
+    // Still listed, though — ownership silences the explanation, never the location.
+    expect(row?.textContent).toContain('/home/projects/work/.agents/skills/orchestration')
+  })
+
   it('stays coherent while an idle re-scan is in flight', async () => {
     await renderDialog()
     await openViaRequest()

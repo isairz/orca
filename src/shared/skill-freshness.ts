@@ -117,8 +117,9 @@ export function skillPlacementParticipatesInGlobalFreshness(
  * Shared so the badge and the review dialog cannot disagree about what counts: the
  * badge points at the dialog for the explanation, so a copy that turns the badge
  * amber must also produce a row there. An out-of-date copy the command converges is
- * ordinary work, not a problem, and a plugin's own copy of a same-named skill is the
- * vendor's business rather than the user's drift.
+ * ordinary work, not a problem; a plugin's own copy of a same-named skill is the vendor's
+ * business rather than the user's drift, and a project's own copy is outside the reach of
+ * the only update Orca runs.
  */
 export function isSkillCopyNeedingAttention(installation: SkillFreshnessInstallation): boolean {
   return (

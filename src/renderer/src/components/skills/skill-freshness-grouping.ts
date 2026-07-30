@@ -23,6 +23,9 @@ export type SkillLocationRow = {
   id: string
   path: string
   chip: SkillLocationChip | null
+  /** False for a project-owned copy: listed for visibility, but never judged, so it
+   * cannot be the reason a skill was skipped. */
+  participatesInGlobalFreshness: boolean
 }
 
 export type SkillFreshnessGroupModel = {
@@ -31,14 +34,9 @@ export type SkillFreshnessGroupModel = {
   locations: SkillLocationRow[]
 }
 
-// Precedence is explicit because one chip stands for two dimensions — who owns the copy,
-// and what its bytes look like:
-//   1. a read failure always reports the read failure, whoever owns the copy
-//   2. an owner-managed scope outranks byte status, because the owner's content is not
-//      the user's drift and Orca's global update never reaches it
-//   3. byte status last
-// Ordering 2 above 3 is the fix for a project copy being labelled "may be modified —
-// remove it"; keeping 1 above 2 stops that same rule hiding a genuine read failure.
+// Why: an owner-managed scope outranks 'unrecognized', or a project copy reads "may be
+// modified — remove it" over content its own repo owns. A read failure outranks both, so
+// that rule cannot hide a genuine fault.
 export function locationChip(installation: SkillFreshnessInstallation): SkillLocationChip | null {
   if (installation.status === 'inaccessible') {
     return 'inaccessible'
@@ -81,7 +79,8 @@ export function locationChip(installation: SkillFreshnessInstallation): SkillLoc
  * Details, and Details opens this modal. Returning only out-of-date skills left that
  * modal saying every skill was up to date over an empty list, contradicting the badge
  * that sent the user there. Skills where every copy is current are still omitted, as
- * is a plugin's own copy of a same-named skill, which is not the user's to fix.
+ * is a plugin's own copy of a same-named skill, and a project's own copy — neither is the
+ * user's to fix through the global update.
  *
  * `alwaysIncludeNames` overrides that filter. A successful update makes every
  * targeted skill current, which would otherwise drop its row the instant the
@@ -117,7 +116,12 @@ export function groupSkillFreshness(
       continue
     }
     const locations = entries
-      .map((entry) => ({ id: entry.id, path: entry.unresolvedPath, chip: locationChip(entry) }))
+      .map((entry) => ({
+        id: entry.id,
+        path: entry.unresolvedPath,
+        chip: locationChip(entry),
+        participatesInGlobalFreshness: skillPlacementParticipatesInGlobalFreshness(entry)
+      }))
       .sort((left, right) => left.path.localeCompare(right.path, 'en'))
     groups.push({
       name,

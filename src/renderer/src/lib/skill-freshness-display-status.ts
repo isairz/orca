@@ -69,8 +69,11 @@ export function hasSkillCopyNeedingAttention(
   inventory: SkillFreshnessInventory | null,
   skillName: string
 ): boolean {
+  // Why: the same participation filter the status above applies, or an unreadable plugin
+  // folder flags a repo-only skill the status calls merely installed.
   const placements = (inventory?.installations ?? []).filter(
-    (installation) => installation.name === skillName
+    (installation) =>
+      installation.name === skillName && skillPlacementParticipatesInGlobalFreshness(installation)
   )
   return (
     (placements.length > 0 &&

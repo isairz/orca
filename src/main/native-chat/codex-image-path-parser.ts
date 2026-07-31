@@ -76,9 +76,5 @@ function startsWithNestedAbsoluteImagePath(value: string): boolean {
   if (value.startsWith('\\\\')) {
     return firstImageExtensionEnd(value) !== null
   }
-  if (!value.startsWith('/')) {
-    return false
-  }
-  const directorySeparator = value.indexOf('/', 1)
-  return directorySeparator > 1 && firstImageExtensionEnd(value) !== null
+  return value.startsWith('/') && firstImageExtensionEnd(value) !== null
 }

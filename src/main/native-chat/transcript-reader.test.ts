@@ -337,7 +337,7 @@ describe('readNativeChatTranscript (codex)', () => {
     ])
   })
 
-  it.each([['/tmp/second.jpg'], ['C:\\Temp\\second.jpg']])(
+  it.each([['/tmp/second.jpg'], ['/second.jpg'], ['C:\\Temp\\second.jpg']])(
     'restores multiple pasted images from one Codex user_message: %s',
     async (secondPath) => {
       const firstPath = '/tmp/first.png'

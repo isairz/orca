@@ -9,6 +9,13 @@ describe('parseLeadingCodexImagePaths', () => {
     })
   })
 
+  it('splits concatenated root-level POSIX image paths', () => {
+    expect(parseLeadingCodexImagePaths('/a.png/b.pngcompare')).toEqual({
+      imagePaths: ['/a.png', '/b.png'],
+      query: 'compare'
+    })
+  })
+
   it('keeps extension-like directory names inside one image path', () => {
     expect(parseLeadingCodexImagePaths('/tmp/screens.png-copy/real.jpgcompare this')).toEqual({
       imagePaths: ['/tmp/screens.png-copy/real.jpg'],

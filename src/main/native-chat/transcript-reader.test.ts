@@ -311,6 +311,32 @@ describe('readNativeChatTranscript (codex)', () => {
     ])
   })
 
+  it('preserves duplicate Codex local_images without double-counting parsed path evidence', async () => {
+    const imagePath = '/tmp/orca-pr-attachment.png'
+    const filePath = await writeFixture('orca-native-chat-codex-duplicate-images-', [
+      {
+        type: 'event_msg',
+        timestamp: '2026-06-01T10:00:01.000Z',
+        payload: {
+          type: 'user_message',
+          message: `${imagePath}compare these`,
+          local_images: [imagePath, imagePath]
+        }
+      }
+    ])
+
+    const result = await readNativeChatTranscript('codex', 'codex-sess', { filePath })
+    if (!('messages' in result)) {
+      throw new Error('expected messages')
+    }
+
+    expect(result.messages[0]?.blocks).toEqual([
+      { type: 'image-ref', path: imagePath },
+      { type: 'image-ref', path: imagePath },
+      { type: 'text', text: 'compare these' }
+    ])
+  })
+
   it.each([['/tmp/second.jpg'], ['C:\\Temp\\second.jpg']])(
     'restores multiple pasted images from one Codex user_message: %s',
     async (secondPath) => {

@@ -204,25 +204,25 @@ describe('normalizeImageTranscriptMessages', () => {
     ])
   })
 
-  it('does not pair a marker after an existing image ref with the next source turn', () => {
-    const prompt: NativeChatMessage = {
-      ...userText('prompt', '[Image #1] describe this'),
-      blocks: [
-        { type: 'image-ref', path: '/tmp/existing.png' },
-        { type: 'text', text: '[Image #1] describe this' }
-      ]
-    }
+  it('does not pair a marker that follows an existing image-ref with another source turn', () => {
     const messages = normalizeImageTranscriptMessages([
-      prompt,
-      userText('source', '[Image: source: /tmp/next.png]')
+      {
+        ...userText('codex', '[Image #1] describe this'),
+        blocks: [
+          { type: 'image-ref', path: '/tmp/codex.png' },
+          { type: 'text', text: '[Image #1] describe this' }
+        ]
+      },
+      userText('claude-source', '[Image: source: /tmp/claude.png]')
     ])
 
-    expect(messages).toHaveLength(2)
-    expect(messages[0]?.blocks).toEqual([
-      { type: 'image-ref', path: '/tmp/existing.png' },
-      { type: 'text', text: 'describe this' }
+    expect(messages.map((message) => message.blocks)).toEqual([
+      [
+        { type: 'image-ref', path: '/tmp/codex.png' },
+        { type: 'text', text: 'describe this' }
+      ],
+      [{ type: 'image-ref', path: '/tmp/claude.png' }]
     ])
-    expect(messages[1]?.blocks).toEqual([{ type: 'image-ref', path: '/tmp/next.png' }])
   })
 
   it('leaves ordinary user text untouched', () => {

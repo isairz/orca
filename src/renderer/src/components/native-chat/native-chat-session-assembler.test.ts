@@ -140,6 +140,72 @@ describe('assembleNativeChatSession', () => {
     ])
   })
 
+  it('merges Claude prompt-first image records with multiple source paths', () => {
+    const prompt = msg({
+      id: 'u-prompt',
+      role: 'user',
+      timestamp: 100,
+      blocks: [{ type: 'text', text: '[Image #4] [Image #5]' }]
+    })
+    const imageSources = msg({
+      id: 'u-image-sources',
+      role: 'user',
+      timestamp: 100,
+      blocks: [
+        { type: 'text', text: '[Image: source: /Users/me/Downloads/first.png]' },
+        { type: 'text', text: '[Image: source: /Users/me/Downloads/second.png]' }
+      ]
+    })
+
+    const session = assembleNativeChatSession({
+      sources: { transcript: [prompt, imageSources] },
+      sessionId: 's1',
+      agent: 'claude'
+    })
+
+    expect(session.messages).toHaveLength(1)
+    expect(session.messages[0]).toMatchObject({ id: 'u-prompt', role: 'user' })
+    expect(session.messages[0].blocks).toEqual([
+      { type: 'image-ref', path: '/Users/me/Downloads/first.png' },
+      { type: 'image-ref', path: '/Users/me/Downloads/second.png' }
+    ])
+  })
+
+  it('keeps a Claude image visible when a tail window splits it from its prompt', () => {
+    const imageSource = msg({
+      id: 'u-image-source',
+      role: 'user',
+      timestamp: 100,
+      blocks: [{ type: 'text', text: '[Image: source: /Users/me/Downloads/3d.png]' }]
+    })
+    const prompt = msg({
+      id: 'u-prompt',
+      role: 'user',
+      timestamp: 101,
+      blocks: [{ type: 'text', text: '[Image #1] what do you see' }]
+    })
+
+    const tail = assembleNativeChatSession({
+      sources: { transcript: [imageSource] },
+      sessionId: 's1',
+      agent: 'claude'
+    })
+    const expanded = assembleNativeChatSession({
+      sources: { transcript: [imageSource, prompt] },
+      sessionId: 's1',
+      agent: 'claude'
+    })
+
+    expect(tail.messages[0].blocks).toEqual([
+      { type: 'image-ref', path: '/Users/me/Downloads/3d.png' }
+    ])
+    expect(expanded.messages).toHaveLength(1)
+    expect(expanded.messages[0].blocks).toEqual([
+      { type: 'image-ref', path: '/Users/me/Downloads/3d.png' },
+      { type: 'text', text: 'what do you see' }
+    ])
+  })
+
   it('drops a scrape duplicate even when scrape is processed first by id', () => {
     const scrape = msg({
       id: 'shared-id',

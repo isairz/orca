@@ -8,18 +8,12 @@ const IMAGE_PROMPT_MARKER_AT_END = /\[Image #\d+\][^\S\r\n]*$/
 const HORIZONTAL_WHITESPACE_START = /^[^\S\r\n]+/
 const HORIZONTAL_WHITESPACE_END = /[^\S\r\n]+$/
 
-function soleText(message: NativeChatMessage): string | null {
-  return message.blocks.length === 1 && isTextBlock(message.blocks[0])
-    ? message.blocks[0].text
-    : null
-}
-
 export function imageSourcePathFromText(text: string): string | null {
   return text.match(IMAGE_SOURCE_MARKER)?.[1]?.trim() ?? null
 }
 
 export function isImageSourceUserTurn(message: NativeChatMessage): boolean {
-  return message.role === 'user' && imageSourcePathFromText(soleText(message) ?? '') !== null
+  return message.role === 'user' && imageSourcePaths(message).length > 0
 }
 
 export function stripImagePromptMarker(text: string): string {
@@ -85,6 +79,33 @@ export function hasImagePromptMarker(message: NativeChatMessage): boolean {
   return message.blocks.some((block) => isTextBlock(block) && IMAGE_PROMPT_MARKER.test(block.text))
 }
 
+function imagePromptMarkerStartsMessage(message: NativeChatMessage): boolean {
+  const first = message.blocks[0]
+  return isTextBlock(first) && IMAGE_PROMPT_MARKER_AT_START.test(first.text)
+}
+
+function imageSourcePaths(message: NativeChatMessage): string[] {
+  if (message.blocks.length === 0) {
+    return []
+  }
+  const paths: string[] = []
+  for (const block of message.blocks) {
+    if (!isTextBlock(block)) {
+      return []
+    }
+    const path = imageSourcePathFromText(block.text)
+    if (!path) {
+      return []
+    }
+    paths.push(path)
+  }
+  return paths
+}
+
+function imageRefBlocks(paths: readonly string[]): NativeChatBlock[] {
+  return paths.map((path) => ({ type: 'image-ref' as const, path }))
+}
+
 /** Claude records image paths as source turns followed by a prompt carrying
  *  image markers. Merge the whole run back into one native user turn. */
 export function normalizeImageTranscriptMessages(
@@ -97,18 +118,37 @@ export function normalizeImageTranscriptMessages(
       normalized?.push(message)
       continue
     }
-    const imagePath = imageSourcePathFromText(soleText(message) ?? '')
-    if (imagePath) {
+    const next = messages[index + 1]
+    const nextImagePaths = next?.role === 'user' ? imageSourcePaths(next) : []
+    if (
+      imagePromptMarkerStartsMessage(message) &&
+      next?.source === message.source &&
+      nextImagePaths.length > 0
+    ) {
       normalized ??= messages.slice(0, index)
-      const imagePaths = [imagePath]
+      normalized.push({
+        ...message,
+        blocks: [...imageRefBlocks(nextImagePaths), ...stripImagePromptMarkersFromTextBlocks(message.blocks)]
+      })
+      index += 1
+      continue
+    }
+    const currentImagePaths = imageSourcePaths(message)
+    if (currentImagePaths.length > 0) {
+      normalized ??= messages.slice(0, index)
+      const imagePaths = [...currentImagePaths]
       let nextIndex = index + 1
       while (nextIndex < messages.length) {
         const candidate = messages[nextIndex]!
-        const candidatePath = imageSourcePathFromText(soleText(candidate) ?? '')
-        if (candidate.role !== 'user' || candidate.source !== message.source || !candidatePath) {
+        const candidatePaths = imageSourcePaths(candidate)
+        if (
+          candidate.role !== 'user' ||
+          candidate.source !== message.source ||
+          candidatePaths.length === 0
+        ) {
           break
         }
-        imagePaths.push(candidatePath)
+        imagePaths.push(...candidatePaths)
         nextIndex += 1
       }
       const prompt = messages[nextIndex]
@@ -120,7 +160,7 @@ export function normalizeImageTranscriptMessages(
         normalized.push({
           ...prompt,
           blocks: [
-            ...imagePaths.map((path) => ({ type: 'image-ref' as const, path })),
+            ...imageRefBlocks(imagePaths),
             ...stripImagePromptMarkersFromTextBlocks(prompt.blocks)
           ]
         })
@@ -129,7 +169,7 @@ export function normalizeImageTranscriptMessages(
       }
       normalized.push({
         ...message,
-        blocks: [{ type: 'image-ref', path: imagePath }]
+        blocks: imageRefBlocks(imagePaths)
       })
       continue
     }

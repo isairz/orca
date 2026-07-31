@@ -174,6 +174,58 @@ describe('readNativeChatTranscript (claude)', () => {
     })
   })
 
+  it('restores multiple Claude image-only attachments from the paired meta record', async () => {
+    const firstPath = '/Users/me/Desktop/first.png'
+    const secondPath = '/Users/me/Desktop/second.png'
+    const filePath = await writeFixture('orca-native-chat-claude-images-', [
+      {
+        type: 'user',
+        uuid: 'u-images',
+        timestamp: '2026-07-31T02:05:16.006Z',
+        message: {
+          role: 'user',
+          content: [
+            { type: 'text', text: '[Image #4] [Image #5]' },
+            { type: 'image', source: { type: 'base64', data: 'omitted' } },
+            { type: 'image', source: { type: 'base64', data: 'omitted' } }
+          ]
+        }
+      },
+      {
+        type: 'user',
+        uuid: 'u-image-paths',
+        isMeta: true,
+        timestamp: '2026-07-31T02:05:16.006Z',
+        message: {
+          role: 'user',
+          content: [
+            { type: 'text', text: `[Image: source: ${firstPath}]` },
+            { type: 'text', text: `[Image: source: ${secondPath}]` }
+          ]
+        }
+      }
+    ])
+
+    const result = await readNativeChatTranscript('claude', 'sess', { filePath })
+    if (!('messages' in result)) {
+      throw new Error('expected messages')
+    }
+    expect(result.messages).toHaveLength(2)
+    expect(result.messages[0]).toMatchObject({
+      id: 'u-images',
+      role: 'user',
+      blocks: [{ type: 'text', text: '[Image #4] [Image #5]' }]
+    })
+    expect(result.messages[1]).toMatchObject({
+      id: 'u-image-paths',
+      role: 'user',
+      blocks: [
+        { type: 'text', text: `[Image: source: ${firstPath}]` },
+        { type: 'text', text: `[Image: source: ${secondPath}]` }
+      ]
+    })
+  })
+
   it('marks thinking-only assistant content as a reasoning surface', async () => {
     const filePath = await writeFixture('orca-native-chat-claude-think-', [
       {
@@ -192,6 +244,151 @@ describe('readNativeChatTranscript (claude)', () => {
 })
 
 describe('readNativeChatTranscript (codex)', () => {
+  it.each([
+    '/Users/me/Desktop/My Screenshot.png',
+    'C:\\Users\\me\\Desktop\\My Screenshot.webp',
+    '\\\\server\\share\\My Screenshot.jpg'
+  ])(
+    'restores a pasted image and prompt from Codex user_message text for %s',
+    async (imagePath) => {
+      const filePath = await writeFixture('orca-native-chat-codex-image-', [
+        {
+          type: 'session_meta',
+          timestamp: '2026-06-01T10:00:00.000Z',
+          payload: { id: 'codex-sess', cwd: '/repo' }
+        },
+        {
+          type: 'event_msg',
+          timestamp: '2026-06-01T10:00:01.000Z',
+          payload: {
+            type: 'user_message',
+            message: `${imagePath}what do you see?`,
+            images: [],
+            local_images: []
+          }
+        }
+      ])
+
+      const result = await readNativeChatTranscript('codex', 'codex-sess', { filePath })
+      if (!('messages' in result)) {
+        throw new Error('expected messages')
+      }
+
+      expect(result.messages).toMatchObject([
+        {
+          role: 'user',
+          blocks: [
+            { type: 'image-ref', path: imagePath },
+            { type: 'text', text: 'what do you see?' }
+          ]
+        }
+      ])
+    }
+  )
+
+  it('restores current Codex local_images with its prompt marker', async () => {
+    const imagePath = '/tmp/orca-pr-attachment.png'
+    const filePath = await writeFixture('orca-native-chat-codex-local-image-', [
+      {
+        type: 'event_msg',
+        timestamp: '2026-06-01T10:00:01.000Z',
+        payload: {
+          type: 'user_message',
+          message: '[Image #1] describe this',
+          local_images: [imagePath]
+        }
+      }
+    ])
+
+    const result = await readNativeChatTranscript('codex', 'codex-sess', { filePath })
+    if (!('messages' in result)) {
+      throw new Error('expected messages')
+    }
+
+    expect(result.messages[0]?.blocks).toEqual([
+      { type: 'image-ref', path: imagePath },
+      { type: 'text', text: '[Image #1] describe this' }
+    ])
+  })
+
+  it.each([['/tmp/second.jpg'], ['C:\\Temp\\second.jpg']])(
+    'restores multiple pasted images from one Codex user_message: %s',
+    async (secondPath) => {
+      const firstPath = '/tmp/first.png'
+      const filePath = await writeFixture('orca-native-chat-codex-images-', [
+        {
+          type: 'event_msg',
+          timestamp: '2026-06-01T10:00:01.000Z',
+          payload: {
+            type: 'user_message',
+            message: `${firstPath}${secondPath}compare these`
+          }
+        }
+      ])
+
+      const result = await readNativeChatTranscript('codex', 'codex-sess', { filePath })
+      if (!('messages' in result)) {
+        throw new Error('expected messages')
+      }
+
+      expect(result.messages[0]?.blocks).toEqual([
+        { type: 'image-ref', path: firstPath },
+        { type: 'image-ref', path: secondPath },
+        { type: 'text', text: 'compare these' }
+      ])
+    }
+  )
+
+  it('does not stop at an image extension inside a directory name', async () => {
+    const imagePath = '/tmp/screens.png-copy/real.jpg'
+    const filePath = await writeFixture('orca-native-chat-codex-image-directory-', [
+      {
+        type: 'event_msg',
+        timestamp: '2026-06-01T10:00:01.000Z',
+        payload: {
+          type: 'user_message',
+          message: `${imagePath}compare this`
+        }
+      }
+    ])
+
+    const result = await readNativeChatTranscript('codex', 'codex-sess', { filePath })
+    if (!('messages' in result)) {
+      throw new Error('expected messages')
+    }
+
+    expect(result.messages[0]?.blocks).toEqual([
+      { type: 'image-ref', path: imagePath },
+      { type: 'text', text: 'compare this' }
+    ])
+  })
+
+  it.each([
+    'Open /tmp/example.png and describe it',
+    '/tmp/example.png is the image to inspect',
+    '/tmp/example.png.bak is not an image attachment'
+  ])('preserves an ordinary Codex prompt that mentions an image path: %s', async (text) => {
+    const filePath = await writeFixture('orca-native-chat-codex-image-mention-', [
+      {
+        type: 'session_meta',
+        timestamp: '2026-06-01T10:00:00.000Z',
+        payload: { id: 'codex-sess', cwd: '/repo' }
+      },
+      {
+        type: 'event_msg',
+        timestamp: '2026-06-01T10:00:01.000Z',
+        payload: { type: 'user_message', message: text }
+      }
+    ])
+
+    const result = await readNativeChatTranscript('codex', 'codex-sess', { filePath })
+    if (!('messages' in result)) {
+      throw new Error('expected messages')
+    }
+
+    expect(result.messages[0]?.blocks).toEqual([{ type: 'text', text }])
+  })
+
   it('maps tool calls and results to tool-call/tool-result blocks', async () => {
     const filePath = await writeFixture('orca-native-chat-codex-', [
       {

@@ -5,6 +5,7 @@ import {
   type NativeChatBlock,
   type NativeChatMessage
 } from '../../shared/native-chat-types'
+import { IMAGE_FILE_EXTENSIONS } from '../../shared/image-file-extensions'
 import {
   asRecord,
   extractString,
@@ -128,7 +129,13 @@ function codexEventMessage(
   if (payload.type === 'user_message') {
     const text = extractString(payload.message)
     return text
-      ? { id, role: 'user', blocks: [{ type: 'text', text }], timestamp, source: 'transcript' }
+      ? {
+          id,
+          role: 'user',
+          blocks: codexUserMessageBlocks(text, codexLocalImagePaths(payload.local_images)),
+          timestamp,
+          source: 'transcript'
+        }
       : null
   }
   if (payload.type === 'agent_message') {
@@ -138,6 +145,81 @@ function codexEventMessage(
       : null
   }
   return null
+}
+
+function codexUserMessageBlocks(
+  text: string,
+  localImagePaths: readonly string[] = []
+): NativeChatBlock[] {
+  const parsedImagePaths: string[] = []
+  let query = text
+  while (isAbsolutePathStart(query)) {
+    const imageEnd = firstImageExtensionEnd(query)
+    if (imageEnd === null) {
+      break
+    }
+    parsedImagePaths.push(query.slice(0, imageEnd))
+    query = query.slice(imageEnd)
+  }
+  const imagePaths = [...new Set([...localImagePaths, ...parsedImagePaths])]
+  if (imagePaths.length === 0) {
+    return [{ type: 'text', text }]
+  }
+  const trimmedQuery = query.trim()
+  return [
+    ...imagePaths.map((path) => ({ type: 'image-ref' as const, path })),
+    ...(trimmedQuery ? [{ type: 'text' as const, text: trimmedQuery }] : [])
+  ]
+}
+
+function codexLocalImagePaths(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value.filter((path): path is string => typeof path === 'string' && path.length > 0)
+}
+
+function isAbsolutePathStart(value: string): boolean {
+  return (
+    value.startsWith('/') ||
+    /^[a-z]:[\\/]/i.test(value) ||
+    /^[\\/]{2}[^\\/\r\n]+[\\/][^\\/\r\n]+[\\/]/.test(value)
+  )
+}
+
+function firstImageExtensionEnd(value: string): number | null {
+  const lower = value.toLowerCase()
+  for (let index = 0; index < lower.length; index += 1) {
+    for (const extension of IMAGE_FILE_EXTENSIONS) {
+      if (!lower.startsWith(extension, index)) {
+        continue
+      }
+      const end = index + extension.length
+      const next = value[end]
+      if (next === '/' || next === '\\') {
+        if (startsWithNestedAbsoluteImagePath(value.slice(end))) {
+          return end
+        }
+        continue
+      }
+      if (next === '.' || next === '-' || next === '_') {
+        continue
+      }
+      return next === undefined || !/\s/.test(next) ? end : null
+    }
+  }
+  return null
+}
+
+function startsWithNestedAbsoluteImagePath(value: string): boolean {
+  if (value.startsWith('\\\\')) {
+    return firstImageExtensionEnd(value) !== null
+  }
+  if (!value.startsWith('/')) {
+    return false
+  }
+  const directorySeparator = value.indexOf('/', 1)
+  return directorySeparator > 1 && firstImageExtensionEnd(value) !== null
 }
 
 function codexCompletedTurnItem(

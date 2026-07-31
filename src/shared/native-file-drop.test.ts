@@ -49,6 +49,23 @@ describe('resolveNativeFileDropPath', () => {
     })
   })
 
+  it('preserves the owning terminal pane when a drop lands on its chat composer', () => {
+    expect(
+      resolveNativeFileDropPath([
+        { nativeFileDropTarget: NATIVE_FILE_DROP_TARGET.composer },
+        { terminalPaneLeafId: 'leaf-2' },
+        {
+          nativeFileDropTarget: NATIVE_FILE_DROP_TARGET.terminal,
+          terminalTabId: 'tab-2'
+        }
+      ])
+    ).toEqual({
+      target: NATIVE_FILE_DROP_TARGET.composer,
+      tabId: 'tab-2',
+      paneLeafId: 'leaf-2'
+    })
+  })
+
   it('uses the nearest file-explorer destination and fails closed without one', () => {
     expect(
       resolveNativeFileDropPath([
@@ -134,6 +151,20 @@ describe('createNativeFileDropPayload', () => {
     })
   })
 
+  it('preserves composer tab and pane routing in accepted payloads', () => {
+    expect(
+      createNativeFileDropPayload(
+        { target: NATIVE_FILE_DROP_TARGET.composer, tabId: 'tab-2', paneLeafId: 'leaf-2' },
+        ['/tmp/a']
+      )
+    ).toEqual({
+      paneLeafId: 'leaf-2',
+      paths: ['/tmp/a'],
+      tabId: 'tab-2',
+      target: NATIVE_FILE_DROP_TARGET.composer
+    })
+  })
+
   it('preserves file explorer destination routing in accepted payloads', () => {
     expect(
       createNativeFileDropPayload(
@@ -177,6 +208,14 @@ describe('isNativeFileDropPayload', () => {
       isNativeFileDropPayload({
         paths: ['/tmp/a'],
         target: NATIVE_FILE_DROP_TARGET.editor
+      })
+    ).toBe(true)
+    expect(
+      isNativeFileDropPayload({
+        paneLeafId: 'leaf-2',
+        paths: ['/tmp/a'],
+        tabId: 'tab-2',
+        target: NATIVE_FILE_DROP_TARGET.composer
       })
     ).toBe(true)
     expect(

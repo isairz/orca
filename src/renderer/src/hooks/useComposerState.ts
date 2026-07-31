@@ -206,7 +206,10 @@ import {
   getComposerRepoWorktreeBranches
 } from './composer-branch-selection'
 import { isCurrentComposerDropOwner } from './composer-drop-owner'
-import { applyComposerNativeFileDrop } from './composer-native-file-drop'
+import {
+  applyComposerNativeFileDrop,
+  isWorkspaceComposerNativeFileDrop
+} from './composer-native-file-drop'
 import {
   collectComposerDropUploadResult,
   shouldReportComposerDropUploadFailure
@@ -2656,7 +2659,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     const instanceId = instanceIdRef.current
     composerDropStack.push(instanceId)
     const unsubscribe = window.api.ui.onFileDrop((data) => {
-      if (data.target !== 'composer') {
+      if (!isWorkspaceComposerNativeFileDrop(data)) {
         return
       }
       // Why: only the top-of-stack composer owns the drop; earlier subscribers short-circuit so page+modal don't double-apply it.

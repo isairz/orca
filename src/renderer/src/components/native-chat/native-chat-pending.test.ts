@@ -447,6 +447,32 @@ describe('pendingSendsAsMessages', () => {
     ])
   })
 
+  it('hides the optimistic attachment bubble once the restored transcript turn lands', () => {
+    const pending = [
+      {
+        ...pendingOf('p1', 'what do you see?'),
+        imagePaths: ['/Users/me/Desktop/My Screenshot.png']
+      }
+    ]
+    const transcript: NativeChatMessage[] = [
+      {
+        id: 'u1',
+        role: 'user',
+        blocks: [
+          { type: 'image-ref', path: '/Users/me/Desktop/My Screenshot.png' },
+          { type: 'text', text: 'what do you see?' }
+        ],
+        timestamp: 101,
+        source: 'transcript'
+      }
+    ]
+
+    expect(pendingSendsAsMessages(pending, transcript)).toEqual([])
+    expect(prunePendingSends(pending, [...transcript, assistantMessage('a1', 'an image')])).toEqual(
+      []
+    )
+  })
+
   it('hides an attachment-only pending send while its real image turn is visible', () => {
     const pending = [{ ...pendingOf('p1', ''), imagePaths: ['/tmp/shot.png'] }]
 

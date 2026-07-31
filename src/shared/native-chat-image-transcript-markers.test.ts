@@ -104,10 +104,19 @@ describe('normalizeImageTranscriptMessages', () => {
     expect(normalizedNativeChatUserMessageText(message)).toBe('look here')
   })
 
-  it('recognizes only sole-text image-source user turns', () => {
+  it('recognizes image-source-only user turns', () => {
     const source = userText('source', '[Image: source: /tmp/a.png]')
     expect(isImageSourceUserTurn(source)).toBe(true)
     expect(isImageSourceUserTurn({ ...source, role: 'assistant' })).toBe(false)
+    expect(
+      isImageSourceUserTurn({
+        ...source,
+        blocks: [
+          { type: 'text', text: '[Image: source: /tmp/a.png]' },
+          { type: 'text', text: '[Image: source: /tmp/b.png]' }
+        ]
+      })
+    ).toBe(true)
     expect(
       isImageSourceUserTurn({
         ...source,
@@ -170,6 +179,50 @@ describe('normalizeImageTranscriptMessages', () => {
       [{ type: 'image-ref', path: '/tmp/a.png' }],
       [{ type: 'image-ref', path: '/tmp/b.png' }]
     ])
+  })
+
+  it('merges the current Claude prompt-first schema with multiple image sources', () => {
+    const messages = normalizeImageTranscriptMessages([
+      userText('prompt', '[Image #4] [Image #5]'),
+      {
+        ...userText('sources', '[Image: source: /tmp/first.png]'),
+        blocks: [
+          { type: 'text', text: '[Image: source: /tmp/first.png]' },
+          { type: 'text', text: '[Image: source: /tmp/second.png]' }
+        ]
+      }
+    ])
+
+    expect(messages).toEqual([
+      {
+        ...userText('prompt', '[Image #4] [Image #5]'),
+        blocks: [
+          { type: 'image-ref', path: '/tmp/first.png' },
+          { type: 'image-ref', path: '/tmp/second.png' }
+        ]
+      }
+    ])
+  })
+
+  it('does not pair a marker after an existing image ref with the next source turn', () => {
+    const prompt: NativeChatMessage = {
+      ...userText('prompt', '[Image #1] describe this'),
+      blocks: [
+        { type: 'image-ref', path: '/tmp/existing.png' },
+        { type: 'text', text: '[Image #1] describe this' }
+      ]
+    }
+    const messages = normalizeImageTranscriptMessages([
+      prompt,
+      userText('source', '[Image: source: /tmp/next.png]')
+    ])
+
+    expect(messages).toHaveLength(2)
+    expect(messages[0]?.blocks).toEqual([
+      { type: 'image-ref', path: '/tmp/existing.png' },
+      { type: 'text', text: 'describe this' }
+    ])
+    expect(messages[1]?.blocks).toEqual([{ type: 'image-ref', path: '/tmp/next.png' }])
   })
 
   it('leaves ordinary user text untouched', () => {

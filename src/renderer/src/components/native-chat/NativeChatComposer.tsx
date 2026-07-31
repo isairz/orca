@@ -214,7 +214,11 @@ export const NativeChatComposer = forwardRef<NativeChatComposerHandle, NativeCha
       [focus, insertTypedText, handlePaste, pasteFromClipboard]
     )
 
-    const { pickAttachment } = useNativeChatFileAttachmentActions(attachExternalPaths)
+    const { pickAttachment } = useNativeChatFileAttachmentActions(
+      terminalTabId,
+      paneKey,
+      attachExternalPaths
+    )
     const { toggleDictation, startHoldDictation, stopHoldDictation } =
       useNativeChatDictationActions({ textareaRef, setDictationPressed })
     const { dispatch: dispatchSessionOptionCommand, isDispatching: isDispatchingSessionOption } =

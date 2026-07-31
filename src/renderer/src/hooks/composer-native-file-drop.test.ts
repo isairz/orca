@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { applyComposerNativeFileDrop } from './composer-native-file-drop'
+import {
+  applyComposerNativeFileDrop,
+  isWorkspaceComposerNativeFileDrop
+} from './composer-native-file-drop'
 
 function createDropArgs() {
   return {
@@ -78,5 +81,27 @@ describe('applyComposerNativeFileDrop', () => {
     expect(args.insertFolderPaths).not.toHaveBeenCalled()
     expect(args.applyLocalPaths).not.toHaveBeenCalled()
     expect(args.onError).not.toHaveBeenCalled()
+  })
+})
+
+describe('isWorkspaceComposerNativeFileDrop', () => {
+  it('accepts an unscoped workspace composer drop', () => {
+    expect(
+      isWorkspaceComposerNativeFileDrop({
+        paths: ['/local/a.txt'],
+        target: 'composer'
+      })
+    ).toBe(true)
+  })
+
+  it('rejects a native chat composer drop scoped to a tab and pane', () => {
+    expect(
+      isWorkspaceComposerNativeFileDrop({
+        paths: ['/local/a.txt'],
+        target: 'composer',
+        tabId: 'tab-1',
+        paneLeafId: 'pane-1'
+      })
+    ).toBe(false)
   })
 })

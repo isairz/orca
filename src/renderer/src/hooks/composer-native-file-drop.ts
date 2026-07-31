@@ -1,3 +1,5 @@
+import type { NativeFileDropPayload } from '../../../shared/native-file-drop'
+
 export type ComposerNativeFileDropUpload = {
   filePaths: string[]
   folderPaths: string[]
@@ -11,6 +13,12 @@ type ComposerNativeFileDropArgs = {
   addAttachments: (paths: string[]) => void
   insertFolderPaths: (paths: string[]) => void
   onError: (error: unknown) => void
+}
+
+export function isWorkspaceComposerNativeFileDrop(
+  data: NativeFileDropPayload
+): data is Extract<NativeFileDropPayload, { target: 'composer' }> {
+  return data.target === 'composer' && data.tabId == null && data.paneLeafId == null
 }
 
 export async function applyComposerNativeFileDrop(args: ComposerNativeFileDropArgs): Promise<void> {

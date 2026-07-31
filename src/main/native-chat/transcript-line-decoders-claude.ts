@@ -13,6 +13,7 @@ import {
 } from '../ai-vault/session-scanner-values'
 import { claudeContentBlocks } from './transcript-record-blocks'
 import { claudeInterruptedMessageId } from './transcript-turn-markers'
+import { imageSourcePathFromText } from '../../shared/native-chat-image-transcript-markers'
 
 export function decodeClaudeTranscriptLine(
   line: string,
@@ -50,7 +51,11 @@ export function decodeClaudeTranscriptLine(
     role === 'user' &&
     (record.isMeta === true || record.isSynthetic === true || record.isCompactSummary === true)
   const blocks = isInjectedUserTurn
-    ? decodedBlocks.filter((block) => block.type === 'tool-result')
+    ? decodedBlocks.filter(
+        (block) =>
+          block.type === 'tool-result' ||
+          (block.type === 'text' && imageSourcePathFromText(block.text) !== null)
+      )
     : decodedBlocks
   if (blocks.length === 0) {
     return null

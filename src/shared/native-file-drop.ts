@@ -16,7 +16,7 @@ export const NATIVE_FILE_DROP_TARGET = {
 export type NativeDropResolution =
   | { target: typeof NATIVE_FILE_DROP_TARGET.editor }
   | { target: typeof NATIVE_FILE_DROP_TARGET.terminal; tabId?: string; paneLeafId?: string }
-  | { target: typeof NATIVE_FILE_DROP_TARGET.composer }
+  | { target: typeof NATIVE_FILE_DROP_TARGET.composer; tabId?: string; paneLeafId?: string }
   | { target: typeof NATIVE_FILE_DROP_TARGET.fileExplorer; destinationDir: string }
   | { target: typeof NATIVE_FILE_DROP_TARGET.projectSidebar }
   | { target: 'rejected' }
@@ -29,7 +29,12 @@ export type NativeFileDropPayload =
       tabId?: string
       paneLeafId?: string
     }
-  | { paths: string[]; target: typeof NATIVE_FILE_DROP_TARGET.composer }
+  | {
+      paths: string[]
+      target: typeof NATIVE_FILE_DROP_TARGET.composer
+      tabId?: string
+      paneLeafId?: string
+    }
   | {
       paths: string[]
       target: typeof NATIVE_FILE_DROP_TARGET.fileExplorer
@@ -100,16 +105,26 @@ export function resolveNativeFileDropPath(
   path: readonly NativeFileDropPathEntry[]
 ): NativeDropResolution | null {
   let foundExplorer = false
+  let foundComposer = false
   let destinationDir: string | undefined
+  let terminalTabId: string | undefined
   let terminalPaneLeafId: string | undefined
 
   for (const entry of path) {
+    terminalTabId ??= entry.terminalTabId
     terminalPaneLeafId ??= entry.terminalPaneLeafId
     const target = entry.nativeFileDropTarget
-    if (target === NATIVE_FILE_DROP_TARGET.terminal) {
-      return { target, tabId: entry.terminalTabId, paneLeafId: terminalPaneLeafId }
+    if (target === NATIVE_FILE_DROP_TARGET.composer) {
+      foundComposer = true
+      continue
     }
-    if (target === NATIVE_FILE_DROP_TARGET.editor || target === NATIVE_FILE_DROP_TARGET.composer) {
+    if (target === NATIVE_FILE_DROP_TARGET.terminal) {
+      if (!foundComposer) {
+        return { target, tabId: terminalTabId, paneLeafId: terminalPaneLeafId }
+      }
+      continue
+    }
+    if (target === NATIVE_FILE_DROP_TARGET.editor) {
       return { target }
     }
     if (target === NATIVE_FILE_DROP_TARGET.projectSidebar) {
@@ -122,6 +137,14 @@ export function resolveNativeFileDropPath(
     // Pick the nearest (innermost) destination directory marker.
     if (destinationDir === undefined && entry.nativeFileDropDir) {
       destinationDir = entry.nativeFileDropDir
+    }
+  }
+
+  if (foundComposer) {
+    return {
+      target: NATIVE_FILE_DROP_TARGET.composer,
+      tabId: terminalTabId,
+      paneLeafId: terminalPaneLeafId
     }
   }
 
@@ -214,6 +237,14 @@ export function createNativeFileDropPayload(
       ...(resolution.paneLeafId ? { paneLeafId: resolution.paneLeafId } : {})
     }
   }
+  if (resolution?.target === NATIVE_FILE_DROP_TARGET.composer) {
+    return {
+      paths: [...paths],
+      target: resolution.target,
+      ...(resolution.tabId ? { tabId: resolution.tabId } : {}),
+      ...(resolution.paneLeafId ? { paneLeafId: resolution.paneLeafId } : {})
+    }
+  }
 
   return { paths: [...paths], target }
 }
@@ -243,7 +274,7 @@ export function isNativeFileDropPayload(value: unknown): value is NativeFileDrop
     return false
   }
 
-  if (target === NATIVE_FILE_DROP_TARGET.terminal) {
+  if (target === NATIVE_FILE_DROP_TARGET.terminal || target === NATIVE_FILE_DROP_TARGET.composer) {
     return (
       isOptionalNativeFileDropString(payload.tabId) &&
       isOptionalNativeFileDropString(payload.paneLeafId)
@@ -254,8 +285,6 @@ export function isNativeFileDropPayload(value: unknown): value is NativeFileDrop
   }
 
   return (
-    target === NATIVE_FILE_DROP_TARGET.editor ||
-    target === NATIVE_FILE_DROP_TARGET.composer ||
-    target === NATIVE_FILE_DROP_TARGET.projectSidebar
+    target === NATIVE_FILE_DROP_TARGET.editor || target === NATIVE_FILE_DROP_TARGET.projectSidebar
   )
 }

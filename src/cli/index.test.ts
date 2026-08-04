@@ -306,6 +306,20 @@ describe('orca root help', () => {
     logSpy.mockRestore()
   })
 
+  it('advertises host-local account management', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await main([], '/tmp/repo')
+
+    expect(logSpy.mock.calls.flat().join('\n')).toContain(
+      'account add               Add a managed Claude or Codex account on this Orca host'
+    )
+    expect(logSpy.mock.calls.flat().join('\n')).toContain(
+      'account list              List managed Claude and Codex accounts on this Orca host'
+    )
+    logSpy.mockRestore()
+  })
+
   it('advertises computer-use capabilities discovery', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -347,6 +361,15 @@ describe('orca root help', () => {
     )
     expect(logSpy.mock.calls[0][0]).toContain(
       'orchestration worker-abandon Fence an uncertain worker without claiming it stopped'
+    )
+    expect(logSpy.mock.calls[0][0]).toContain(
+      "orchestration worker-release Release a settled worker's terminal after archiving its output"
+    )
+    expect(logSpy.mock.calls[0][0]).toContain(
+      'orchestration worker-retain Keep a worker terminal live for debugging'
+    )
+    expect(logSpy.mock.calls[0][0]).toContain(
+      'orchestration worker-list Report worker terminal resource accounting'
     )
     expect(callMock).not.toHaveBeenCalled()
   })

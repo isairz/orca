@@ -83,6 +83,13 @@ describe('orchestration RPC methods', () => {
       } else if (name === 'orchestration.dispatch') {
         scopedParams.run ??= activeRunId
         scopedParams.from ??= 'term_coord'
+      } else if (
+        name === 'orchestration.gateCreate' ||
+        name === 'orchestration.gateResolve' ||
+        name === 'orchestration.gateList'
+      ) {
+        // Why: gates resolve their Run from the sender's pane binding, so naming the run would skip that check.
+        scopedParams.from ??= 'term_coord'
       }
     }
     const parsed = method.params ? method.params.parse(scopedParams) : undefined
@@ -101,7 +108,11 @@ describe('orchestration RPC methods', () => {
 
   it('registers all expected methods', () => {
     const registry = buildRegistry(ORCHESTRATION_METHODS)
-    expect(registry.size).toBe(34)
+    expect(registry.size).toBe(38)
+    expect(registry.has('orchestration.workerRelease')).toBe(true)
+    expect(registry.has('orchestration.workerRetain')).toBe(true)
+    expect(registry.has('orchestration.workerList')).toBe(true)
+    expect(registry.has('orchestration.workerTerminalUserInput')).toBe(true)
     expect(registry.has('orchestration.runCreate')).toBe(true)
     expect(registry.has('orchestration.runUse')).toBe(true)
     expect(registry.has('orchestration.runCurrent')).toBe(true)
@@ -164,7 +175,7 @@ describe('orchestration RPC methods', () => {
       await expect(
         call('orchestration.runCreate', { objective: 'No pane', from: 'term_stale' })
       ).rejects.toMatchObject({ code: 'stable_pane_required' })
-      expect(db.listRuns().filter((run) => run.legacy === 0)).toHaveLength(0)
+      expect(db.listRuns().runs.filter((run) => run.legacy === 0)).toHaveLength(0)
     })
 
     it('rebinds explicitly, lists Runs, and keeps the legacy Run inspect-only', async () => {
@@ -2176,13 +2187,39 @@ describe('orchestration RPC methods', () => {
       )
       expect(db.getTask(task.id)?.status).toBe('dispatched')
       expect(db.getWorkerDispatch(result.dispatchId)?.state).toBe('ready')
+      // Why: dispatching a worker is background work — surfaceOwner:false adopts
+      // the tab without scrolling the sidebar to the worker's workspace.
       expect(runtime.createTerminal).toHaveBeenCalledWith('id:repo::worktree', {
-        command: 'codex',
-        title: `worker-${task.id}`
+        startupAgent: 'codex',
+        title: `worker-${task.id}`,
+        surfaceOwner: false
       })
       expect(runtime.sendTerminalAgentPrompt).toHaveBeenCalledWith(
         'term_worker',
         expect.stringContaining('--dispatch-capability dcap_')
+      )
+    })
+
+    // Why: `cursor` on PATH is the Cursor desktop app; passing the agent id as a
+    // shell command opened the IDE and left a blank shell (issue #11926).
+    it('never passes the agent id to the worker terminal as a shell command', async () => {
+      setup()
+      mockCurrentWorkerStart()
+      const task = db.createTask({ spec: 'start a cursor worker' })
+
+      await call('orchestration.workerStart', {
+        task: task.id,
+        from: 'term_coord',
+        agent: 'cursor'
+      })
+
+      expect(runtime.createTerminal).toHaveBeenCalledWith(
+        'id:repo::worktree',
+        expect.objectContaining({ startupAgent: 'cursor' })
+      )
+      expect(runtime.createTerminal).toHaveBeenCalledWith(
+        'id:repo::worktree',
+        expect.not.objectContaining({ command: expect.anything() })
       )
     })
 
@@ -2277,7 +2314,9 @@ describe('orchestration RPC methods', () => {
       )
       expect(runtime.createTerminal).toHaveBeenCalledWith(
         'id:repo::other',
-        expect.objectContaining({ command: 'codex' })
+        // Why: starting a worker in an existing worktree must not pull the sidebar
+        // away from whatever the user is looking at.
+        expect.objectContaining({ startupAgent: 'codex', surfaceOwner: false })
       )
       expect(createWorktree).not.toHaveBeenCalled()
     })

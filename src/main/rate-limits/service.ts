@@ -21,6 +21,7 @@ import {
 } from '../claude-accounts/runtime-selection'
 import { fetchAntigravityRateLimits } from './antigravity-usage-fetcher'
 import { fetchKimiRateLimits } from './kimi-fetcher'
+import type { KimiHomeResolution } from '../kimi/kimi-runtime-home'
 import { fetchGrokRateLimits } from './grok-fetcher'
 import { readGrokAuthSession } from './grok-auth'
 import { hasMiniMaxSessionCookie } from '../minimax/minimax-cookie-store'
@@ -38,6 +39,7 @@ export type InactiveCodexAccountInfo = {
 }
 
 type CodexHomePathResolver = (target?: CodexAccountSelectionTarget) => string | null
+type KimiHomeResolver = () => Promise<KimiHomeResolution>
 type ClaudeAuthPreparationResolver = (
   target?: ClaudeAccountSelectionTarget
 ) => Promise<ClaudeRuntimeAuthPreparation>
@@ -217,6 +219,8 @@ export class RateLimitService {
     runtime: 'host',
     wslDistro: null
   }
+  // Why: resolved per cycle — the local-account runtime policy can flip between fetches.
+  private kimiHomeResolver: KimiHomeResolver | null = null
   private claudeAuthPreparationResolver: ClaudeAuthPreparationResolver | null = null
   private claudeFetchTarget: NormalizedClaudeAccountSelectionTarget = {
     runtime: 'host',
@@ -252,6 +256,19 @@ export class RateLimitService {
 
   setCodexFetchTarget(target?: CodexAccountSelectionTarget): void {
     this.codexFetchTarget = normalizeCodexAccountSelectionTarget(target)
+  }
+
+  setKimiHomeResolver(resolver: KimiHomeResolver): void {
+    this.kimiHomeResolver = resolver
+  }
+
+  // Why: resolving a WSL home probes wsl.exe, so it must not run before the other
+  // providers' fetches are started; chaining keeps the no-resolver path immediate.
+  private fetchKimiWithResolvedHome(): Promise<ProviderRateLimits> {
+    const pendingHome = this.kimiHomeResolver?.()
+    return pendingHome
+      ? pendingHome.then((home) => fetchKimiRateLimits({ home }))
+      : fetchKimiRateLimits({ home: undefined })
   }
 
   setClaudeAuthPreparationResolver(resolver: ClaudeAuthPreparationResolver): void {
@@ -1646,7 +1663,7 @@ export class RateLimitService {
         workspaceIdOverride || undefined,
         this.networkProxySettingsResolver?.()
       ),
-      fetchKimiRateLimits(),
+      this.fetchKimiWithResolvedHome(),
       miniMaxConfigResult.error
         ? Promise.resolve(this.getMiniMaxCredentialError(miniMaxConfigResult.error))
         : fetchMiniMaxRateLimits({

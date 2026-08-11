@@ -2773,7 +2773,7 @@
             "agent": {
               "row": {
                 "ad991ece5c": "Agent 창을 더 이상 사용할 수 없습니다.",
-                "090d607412": "오래된 agent 행-{{value0}}"
+                "090d607412": "stale-agent-row-{{value0}}"
               }
             }
           },
@@ -6043,7 +6043,7 @@
           "a3326f6f1b": "glab",
           "027440e1cb": "MR, 이슈, 할 일, 파이프라인을 다음 도구로 사용합니다.",
           "513abfe47d": "GitLab",
-          "51000487c4": "gh 인증 로그인",
+          "51000487c4": "gh auth login",
           "09285e9fe6": "GitHub CLI가 설치되어 있지만 인증되지 않았습니다. terminal에서 다음 명령을 실행하세요.",
           "399cf46867": "GitHub CLI 설치",
           "c0c8575e05": "PR, 이슈 및 검사를 활성화하려면 GitHub CLI를 설치하세요.",
@@ -8259,7 +8259,7 @@
             "compareAgainstUpstreamDescription": "소스 제어가 커밋된 변경 사항 비교에 기본으로 사용할 기준을 선택합니다. 브랜치 업스트림은 현재 브랜치를 자동으로 따라가며, 업스트림이 없으면 저장소 기본 브랜치로 돌아갑니다. 비교 기준은 해당 worktree의 Git 패널에서 worktree별로 변경할 수 있습니다. Pull Request 및 리베이스 대상은 변경되지 않습니다.",
             "compareBase": "비교 기준",
             "currentBranch": "현재 브랜치",
-            "upstream": "업스트림",
+            "upstream": "upstream",
             "localChanges": "로컬 변경 사항",
             "originMaster": "origin/master",
             "committedChanges": "커밋된 변경 사항",
@@ -10935,7 +10935,7 @@
             "9fffaf17c1": "오른쪽 사이드바 표시/숨기기({{value0}})",
             "b37ff4a89a": "포트",
             "9f83375839": "검사",
-            "6306b48afd": "소스 제어",
+            "6306b48afd": "source-control",
             "ef182dcb12": "검색",
             "fc3095d2ed": "탐색기",
             "aiVaultSessionHistory": "에이전트",
@@ -12182,7 +12182,7 @@
             "00078a6134": "설정에서 보기",
             "14327073cc": "저장",
             "88469e926b": "설정 스크립트",
-            "5c5b65044e": "pnpm 설치",
+            "5c5b65044e": "pnpm install",
             "a7463915b6": "설정 스크립트를 저장하지 못했습니다.",
             "6299297dac": "설정 스크립트가 저장되었습니다.",
             "f0bbf7da77": "사용해 보세요",
@@ -12681,7 +12681,7 @@
           "19c45cfdc0": "모두 확장",
           "982d14bfa5": "commit 되지 않은 Diff 열기",
           "3d909843bb": "브랜치 diff 열기",
-          "8368d256ec": "결합 브랜치",
+          "8368d256ec": "combined-branch",
           "8f68ad9ca9": "{{value0}} AI {{value1}} 표시",
           "724a13568d": "{{value0}}에서",
           "6094135eec": "대 {{value0}}",
@@ -12873,7 +12873,7 @@
           "8f4d2c1a9b": "목차 크기 조절"
         },
         "MarkdownTemplatePicker": {
-          "22cd94426f": "제목없음.md",
+          "22cd94426f": "untitled.md",
           "6e2e6c04ad": "빈 Markdown",
           "df667919ca": "일치하는 템플릿이 없습니다.",
           "22fd4890ad": "템플릿 검색...",
@@ -13811,7 +13811,27 @@
           "a21f6c33ad": "자동화 소스를 새로 고쳤습니다.",
           "53f06f0ad5": "소스 다시 시도",
           "pendingAutomationMissing": "자동화를 더 이상 사용할 수 없습니다.",
-          "pendingAutomationRunMissing": "실행 기록을 더 이상 사용할 수 없습니다."
+          "pendingAutomationRunMissing": "실행 기록을 더 이상 사용할 수 없습니다.",
+          "noSearchMatches": "검색과 일치하는 자동화가 없습니다.",
+          "paused": "일시 중지됨",
+          "runCount": "실행 {{count}}회",
+          "runCount_one": "실행 {{count}}회",
+          "runCount_other": "실행 {{count}}회",
+          "projectDefaultBaseRef": "프로젝트 기본값",
+          "createFromBaseRef": "{{baseRef}}에서 만들기",
+          "missingWorkspace": "워크스페이스 없음",
+          "runUsageSummary": "약 {{cost}} · {{tokens}} tokens",
+          "usageUnavailable": "사용량을 사용할 수 없음",
+          "noRunUsageYet": "아직 실행 사용량 없음",
+          "noWorkspace": "워크스페이스 없음",
+          "latestSavedOutput": "최근 저장된 출력",
+          "backToList": "모든 자동화",
+          "tableName": "이름",
+          "tableProject": "프로젝트",
+          "tableStatus": "상태",
+          "tableActions": "작업",
+          "newAutomation": "새 자동화",
+          "rowActions": "자동화 작업"
         },
         "CreateFromPicker": {
           "f061f49e3f": "repo 브랜치 검색...",
@@ -13924,6 +13944,19 @@
           "5a7863909c": "새 워크스페이스마다 설정 실행",
           "18f000ad4e": "고급",
           "874b72195b": "이 자동화가 워크스페이스를 만들 때, 워크트리를 직접 만들 때와 같은 방식으로 준비합니다 — 프로젝트 설정을 실행하고 터미널 탭을 엽니다."
+        },
+        "AutomationsPageSkeleton": {
+          "55527b7bcf": "자동화 로딩 중"
+        },
+        "AutomationListSearchField": {
+          "tooLong": "검색 텍스트가 너무 깁니다 — 목록이 필터링되지 않음",
+          "label": "자동화 검색",
+          "placeholder": "검색...",
+          "tooLongShort": "너무 김",
+          "clear": "검색 지우기"
+        },
+        "AutomationListLocalRows": {
+          "c92c9463c6": "자동화 작업"
         }
       },
       "agent": {

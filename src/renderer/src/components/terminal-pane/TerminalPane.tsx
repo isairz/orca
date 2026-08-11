@@ -32,16 +32,8 @@ import TerminalSearch from '@/components/TerminalSearch'
 import type { PtyTransport } from './pty-transport'
 import type { PtyTransportRecoveryState } from './pty-transport-types'
 import { fitPanes, isWindowsUserAgent } from './pane-helpers'
-import { getConnectionId, getConnectionIdFromState } from '@/lib/connection-context'
-import {
-  getExplicitRuntimeEnvironmentIdForWorktree,
-  getRuntimeEnvironmentIdForWorktree
-} from '@/lib/worktree-runtime-owner'
-import {
-  selectRuntimeAwareSshStatus,
-  selectRuntimeAwareSshTargetLabel,
-  selectRuntimeAwareSshTargetRemoved
-} from '@/store/slices/runtime-environment-ssh'
+import { getConnectionId } from '@/lib/connection-context'
+import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { hydrateRuntimeEnvironmentSshState } from '@/runtime/runtime-environment-ssh-state'
 import { handleInternalTerminalFileDrop } from './terminal-drop-handler'
 import { recordTerminalUserInputForLeaf } from './terminal-input-activity'
@@ -123,7 +115,6 @@ import {
   resolveNativeChatLeafRoute,
   type NativeChatLeafRoute
 } from '../native-chat/native-chat-leaf-routing'
-import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { resolvePaneKeyForManager } from '@/lib/pane-manager/pane-key-resolution'
 import { safeFit, safeFitAndThen } from '@/lib/pane-manager/pane-tree-ops'
 import { clearTerminalScrollbackAndFollowOutput } from '@/lib/pane-manager/terminal-scrollback-clear'
@@ -169,7 +160,6 @@ import {
 import { FLOATING_TERMINAL_WORKTREE_ID } from '../../../../shared/constants'
 import {
   getRepoExecutionHostId,
-  isRuntimeOwnedSshTargetId,
   LOCAL_EXECUTION_HOST_ID,
   type ExecutionHostId
 } from '../../../../shared/execution-host'
@@ -243,6 +233,7 @@ import {
   getCachedUnifiedTerminalTabForWorktree
 } from './terminal-unified-tab-lookup'
 import { resolveNativeChatLeafTitleAgent } from './native-chat-leaf-title-agent'
+import { selectTerminalPaneHostState } from './terminal-pane-host-state'
 import {
   isXtermHelperTextarea,
   releaseTerminalFocusForOutsidePointerDown,
@@ -349,37 +340,14 @@ function TerminalPane(
   const isRendererVisible = isVisible && isWorktreeActive
   const isVisibleRef = useRef(isRendererVisible)
   isVisibleRef.current = isRendererVisible
-  const sshReconnectTargetId = useAppStore((store) => {
-    const connectionId = getConnectionIdFromState(store, worktreeId)
-    // Why: runtime-owned SSH targets are internal plumbing users can't connect to, so a reconnect prompt would mislead.
-    if (!connectionId || isRuntimeOwnedSshTargetId(connectionId)) {
-      return null
-    }
-    return connectionId
-  })
-  const nativeChatTranscriptIsLocalReadable = useAppStore((store) =>
-    isNativeChatTranscriptLocalReadable(getConnectionIdFromState(store, worktreeId))
-  )
-  // Which machine's SSH store this target belongs to: a remote server's per-environment bucket, or null for this machine's local SSH maps.
-  const sshReconnectEnvironmentId = useAppStore((store) =>
-    sshReconnectTargetId ? getExplicitRuntimeEnvironmentIdForWorktree(store, worktreeId) : null
-  )
-  const sshReconnectStatus = useAppStore((store) =>
-    sshReconnectTargetId
-      ? selectRuntimeAwareSshStatus(store, sshReconnectEnvironmentId, sshReconnectTargetId)
-      : null
-  )
-  const sshReconnectTargetLabel = useAppStore((store) =>
-    sshReconnectTargetId
-      ? selectRuntimeAwareSshTargetLabel(store, sshReconnectEnvironmentId, sshReconnectTargetId)
-      : ''
-  )
-  // Why: a ghost target (removed from its host) can only fail reconnect, so the overlay offers Remove instead of Connect.
-  const sshReconnectTargetRemoved = useAppStore((store) =>
-    sshReconnectTargetId
-      ? selectRuntimeAwareSshTargetRemoved(store, sshReconnectEnvironmentId, sshReconnectTargetId)
-      : false
-  )
+  const {
+    nativeChatTranscriptIsLocalReadable,
+    sshReconnectEnvironmentId,
+    sshReconnectStatus,
+    sshReconnectTargetId,
+    sshReconnectTargetLabel,
+    sshReconnectTargetRemoved
+  } = useAppStore(useShallow((store) => selectTerminalPaneHostState(store, worktreeId)))
   useEffect(() => {
     if (!sshReconnectEnvironmentId) {
       return
@@ -824,26 +792,6 @@ function TerminalPane(
     : quickCommandRepoId
       ? 'This Repo'
       : null
-  const {
-    hosts: quickCommandHosts,
-    refreshRemoteHost: refreshQuickCommandRemoteHost,
-    remoteHostLoadFailed: quickCommandHostLoadFailed,
-    remoteHostPending: quickCommandHostOwnershipPending
-  } = useTerminalQuickCommandHosts(worktreeId)
-  const visibleQuickCommandHosts = quickCommandHosts.map((host) => {
-    const commands = host.commands.filter(isTerminalQuickCommandComplete)
-    return {
-      globalCommands: commands.filter(
-        (command) => getTerminalQuickCommandScope(command).type === 'global'
-      ),
-      hostId: host.hostId,
-      label: host.label,
-      repoCommands: commands.filter((command) => {
-        const scope = getTerminalQuickCommandScope(command)
-        return scope.type === 'repo' && terminalQuickCommandMatchesRepo(command, quickCommandRepoId)
-      })
-    }
-  })
   const quickCommandGroupId =
     useAppStore(
       (s) =>
@@ -2569,6 +2517,32 @@ function TerminalPane(
     forceBracketedMultilineTextPaste,
     rightClickToPaste
   })
+  const {
+    hosts: quickCommandHosts,
+    refreshRemoteHost: refreshQuickCommandRemoteHost,
+    remoteHostLoadFailed: quickCommandHostLoadFailed,
+    remoteHostPending: quickCommandHostOwnershipPending
+  } = useTerminalQuickCommandHosts(worktreeId, contextMenu.open)
+  const visibleQuickCommandHosts = useMemo(
+    () =>
+      quickCommandHosts.map((host) => {
+        const commands = host.commands.filter(isTerminalQuickCommandComplete)
+        return {
+          globalCommands: commands.filter(
+            (command) => getTerminalQuickCommandScope(command).type === 'global'
+          ),
+          hostId: host.hostId,
+          label: host.label,
+          repoCommands: commands.filter((command) => {
+            const scope = getTerminalQuickCommandScope(command)
+            return (
+              scope.type === 'repo' && terminalQuickCommandMatchesRepo(command, quickCommandRepoId)
+            )
+          })
+        }
+      }),
+    [quickCommandHosts, quickCommandRepoId]
+  )
   useEffect(() => {
     if (contextMenu.open) {
       refreshQuickCommandRemoteHost()

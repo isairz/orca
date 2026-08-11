@@ -9,6 +9,7 @@ import type {
   HostedReviewProvider
 } from '../shared/hosted-review'
 import type { NativeFileDropPayload } from '../shared/native-file-drop'
+import type { ComputerAwakeStatus } from '../shared/computer-awake-mode'
 import type { BrowserFindSource } from '../shared/browser-find-source'
 import type {
   DashboardRevealAgentArgs,
@@ -226,6 +227,7 @@ import type {
   MarkdownDocument,
   FloatingTerminalCwdRequest,
   GitHubIssueUpdate,
+  GitHubReactionContent,
   GitHubPRRefreshCandidate,
   GitHubPRRefreshEnqueueResult,
   GitHubPRRefreshEvent,
@@ -1480,6 +1482,7 @@ export type PreloadApi = {
       worktreeId: string
       branchName: string
       expectedHead: string
+      hostId?: ExecutionHostId
     }) => Promise<ForceDeleteWorktreeBranchResult>
     updateMeta: (args: { worktreeId: string; updates: Partial<WorktreeMeta> }) => Promise<Worktree>
     listLineage: () => Promise<{
@@ -1564,6 +1567,9 @@ export type PreloadApi = {
       snapshot?: string
       snapshotCols?: number
       snapshotRows?: number
+      snapshotPrefixAnsi?: string
+      snapshotFrameAnsi?: string
+      snapshotFrameRestoreAnsi?: string
       isReattach?: boolean
       isAlternateScreen?: boolean
       replay?: string
@@ -1630,6 +1636,7 @@ export type PreloadApi = {
       opts?: { scrollbackRows?: number }
     ) => Promise<{
       data: string
+      frameRestoreAnsi?: string
       cols: number
       rows: number
       cwd?: string | null
@@ -1882,6 +1889,15 @@ export type PreloadApi = {
       prRepo?: GitHubOwnerRepo | null
       noCache?: boolean
     }) => Promise<PRComment[]>
+    setPRCommentReaction: (args: {
+      repoPath: string
+      repoId?: string
+      sourceContext?: TaskSourceContext | null
+      reactionSubjectId: string
+      content: GitHubReactionContent
+      reacted: boolean
+      prRepo?: GitHubOwnerRepo | null
+    }) => Promise<boolean>
     resolveReviewThread: (args: {
       repoPath: string
       repoId?: string
@@ -2414,6 +2430,10 @@ export type PreloadApi = {
     previewWarpThemeImport: (source: WarpThemeImportSource) => Promise<WarpThemeImportPreview>
     /** Subscribe to out-of-band settings updates (e.g. View > Appearance toggles) to stay in sync with main. */
     onChanged: (callback: (updates: Partial<GlobalSettings>) => void) => () => void
+  }
+  agentAwake: {
+    getStatus: () => Promise<ComputerAwakeStatus>
+    onChanged: (callback: (status: ComputerAwakeStatus) => void) => () => void
   }
   localhostWorktreeLabels: {
     register: (args: LocalhostWorktreeLabelRoute) => Promise<LocalhostWorktreeLabelResult>

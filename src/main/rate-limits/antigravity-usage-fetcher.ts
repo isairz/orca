@@ -3,36 +3,21 @@ import { open, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { net } from 'electron'
-import type { ProviderRateLimits, RateLimitWindow } from '../../shared/rate-limit-types'
+import type { ProviderRateLimits } from '../../shared/rate-limit-types'
 import {
   deduplicateAgyQuotaEndpoints,
   inspectAgyProcessCommands,
   type AgyQuotaEndpoint
 } from './antigravity-endpoint-selection'
+import { parseAgyQuotaSummary, type AgyQuotaWindows } from './antigravity-quota-parser'
+
+export { parseAgyQuotaSummary } from './antigravity-quota-parser'
 
 const COMMAND_TIMEOUT_MS = 4_000
 const FETCH_TIMEOUT_MS = 5_000
 const LOG_PREFIX_BYTES = 16 * 1024
 const SUMMARY_PATH = '/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary'
 const AGY_LOG_DIR = path.join(homedir(), '.gemini', 'antigravity-cli', 'log')
-
-type AgySummaryBucket = {
-  bucketId?: unknown
-  window?: unknown
-  remainingFraction?: unknown
-  resetTime?: unknown
-}
-
-type AgySummaryGroup = {
-  displayName?: unknown
-  buckets?: unknown
-}
-
-type AgySummaryResponse = {
-  response?: {
-    groups?: unknown
-  }
-}
 
 type LsofListener = {
   pid: number
@@ -43,12 +28,13 @@ type LsofListener = {
 function result(
   status: ProviderRateLimits['status'],
   error: string | null,
-  windows?: { session: RateLimitWindow; weekly: RateLimitWindow }
+  windows?: AgyQuotaWindows
 ): ProviderRateLimits {
   return {
     provider: 'antigravity',
     session: windows?.session ?? null,
     weekly: windows?.weekly ?? null,
+    ...(windows ? { buckets: windows.buckets } : {}),
     updatedAt: Date.now(),
     error,
     status,
@@ -204,67 +190,6 @@ async function discoverLsofEndpoints(): Promise<AgyQuotaEndpoint[]> {
 export async function discoverAgyQuotaEndpoints(): Promise<AgyQuotaEndpoint[]> {
   const endpoints = [...(await discoverLogEndpoints()), ...(await discoverLsofEndpoints())]
   return deduplicateAgyQuotaEndpoints(endpoints)
-}
-
-function isSummaryBucket(value: unknown): value is AgySummaryBucket {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-  const bucket = value as AgySummaryBucket
-  return (
-    typeof bucket.window === 'string' &&
-    typeof bucket.remainingFraction === 'number' &&
-    Number.isFinite(bucket.remainingFraction) &&
-    typeof bucket.resetTime === 'string'
-  )
-}
-
-function toWindow(bucket: AgySummaryBucket, windowMinutes: number): RateLimitWindow {
-  const remainingFraction = Math.min(1, Math.max(0, bucket.remainingFraction as number))
-  const resetsAt = Date.parse(bucket.resetTime as string)
-  return {
-    usedPercent: (1 - remainingFraction) * 100,
-    windowMinutes,
-    resetsAt: Number.isFinite(resetsAt) ? resetsAt : null,
-    resetDescription: null
-  }
-}
-
-export function parseAgyQuotaSummary(
-  data: unknown
-): { session: RateLimitWindow; weekly: RateLimitWindow } | null {
-  const groups = (data as AgySummaryResponse | null)?.response?.groups
-  if (!Array.isArray(groups)) {
-    return null
-  }
-  const geminiGroup = groups.find((group): group is AgySummaryGroup => {
-    if (!group || typeof group !== 'object') {
-      return false
-    }
-    const candidate = group as AgySummaryGroup
-    return (
-      candidate.displayName === 'Gemini Models' ||
-      (Array.isArray(candidate.buckets) &&
-        candidate.buckets.some((bucket) => {
-          const bucketId =
-            bucket && typeof bucket === 'object' ? (bucket as AgySummaryBucket).bucketId : null
-          return typeof bucketId === 'string' && bucketId.startsWith('gemini-')
-        }))
-    )
-  })
-  if (!geminiGroup || !Array.isArray(geminiGroup.buckets)) {
-    return null
-  }
-  const buckets = geminiGroup.buckets.filter(isSummaryBucket)
-  const fiveHour = buckets.find((bucket) => bucket.window === '5h')
-  const weekly = buckets.find((bucket) => bucket.window === 'weekly')
-  if (!fiveHour || !weekly) {
-    return null
-  }
-  return {
-    session: toWindow(fiveHour, 300),
-    weekly: toWindow(weekly, 10_080)
-  }
 }
 
 async function fetchSummary(endpoint: AgyQuotaEndpoint): Promise<unknown> {

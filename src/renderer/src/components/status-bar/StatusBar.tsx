@@ -38,11 +38,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAppStore } from '../../store'
 import { selectFloatingWorkspaceHasUnread } from '../../store/selectors'
+import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import type {
   ClaudeRateLimitAccountsState,
-  CodexRateLimitAccountsState,
-  GlobalSettings
-} from '../../../../shared/types'
+  CodexRateLimitAccountsState
+} from '../../../../shared/managed-account-types'
 import type {
   ProviderRateLimits,
   RateLimitRuntimeTarget,
@@ -1176,7 +1176,7 @@ function VerboseProviderUsage({
   p: ProviderRateLimits
   display: UsagePercentageDisplay
 }): React.JSX.Element {
-  if (p.buckets && p.buckets.length > 0) {
+  if (p.provider !== 'antigravity' && p.buckets && p.buckets.length > 0) {
     const visibleBuckets = p.buckets.filter((bucket) => STATUS_BAR_BUCKET_NAMES.has(bucket.name))
     return (
       <>

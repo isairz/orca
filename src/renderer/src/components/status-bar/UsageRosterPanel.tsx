@@ -41,7 +41,8 @@ function shortLabel(
   section: UsageSection,
   useRemainingDuration = false
 ): string {
-  if (p.buckets?.some((b) => b.name === section.label)) {
+  const isNamedBucket = p.buckets?.some((b) => b.name === section.label)
+  if (isNamedBucket && !(p.provider === 'antigravity' && useRemainingDuration)) {
     return section.label
   }
   // fableWeekly shares the 7d window with weekly; label it distinctly so the two

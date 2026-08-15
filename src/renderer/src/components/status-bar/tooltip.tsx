@@ -140,6 +140,9 @@ export function getWindowSections(
 ): { label: string; window: RateLimitWindow | null }[] {
   if (p.buckets?.length) {
     const bucketSections = p.buckets.map((b) => ({ label: b.name, window: b as RateLimitWindow }))
+    if (p.provider === 'antigravity') {
+      return bucketSections
+    }
     return p.weekly
       ? [
           ...bucketSections,

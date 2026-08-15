@@ -107,14 +107,20 @@ describe('Agy quota summary', () => {
     netFetchMock.mockReset()
   })
 
-  it('maps the Gemini model group to the real five-hour and weekly windows', () => {
+  it('preserves both model groups and derives the tightest five-hour and weekly windows', () => {
     const windows = parseAgyQuotaSummary(quotaSummary)
 
-    expect(windows?.session.windowMinutes).toBe(300)
-    expect(windows?.session.usedPercent).toBeCloseTo(7.59684)
-    expect(windows?.session.resetsAt).toBe(Date.parse('2026-07-30T12:25:31Z'))
-    expect(windows?.weekly.windowMinutes).toBe(10_080)
-    expect(windows?.weekly.usedPercent).toBeCloseTo(1.26614)
+    expect(windows?.session?.windowMinutes).toBe(300)
+    expect(windows?.session?.usedPercent).toBeCloseTo(7.59684)
+    expect(windows?.session?.resetsAt).toBe(Date.parse('2026-07-30T12:25:31Z'))
+    expect(windows?.weekly?.windowMinutes).toBe(10_080)
+    expect(windows?.weekly?.usedPercent).toBeCloseTo(1.26614)
+    expect(windows?.buckets.map((bucket) => [bucket.name, bucket.usedPercent])).toEqual([
+      ['Gemini 5h', expect.closeTo(7.59684)],
+      ['Gemini wk', expect.closeTo(1.26614)],
+      ['Claude/GPT 5h', 0],
+      ['Claude/GPT wk', 0]
+    ])
   })
 
   it('does not synthesize fixed windows from unrelated model buckets', () => {
@@ -131,7 +137,7 @@ describe('Agy quota summary', () => {
     expect(limits.status).toBe('ok')
     expect(limits.session?.windowMinutes).toBe(300)
     expect(limits.weekly?.windowMinutes).toBe(10_080)
-    expect(limits.buckets).toBeUndefined()
+    expect(limits.buckets).toHaveLength(4)
     expect(netFetchMock).toHaveBeenCalledWith(
       expect.stringContaining('RetrieveUserQuotaSummary'),
       expect.objectContaining({

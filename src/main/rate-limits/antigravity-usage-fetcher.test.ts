@@ -5,6 +5,7 @@ const { netFetchMock } = vi.hoisted(() => ({ netFetchMock: vi.fn() }))
 vi.mock('electron', () => ({ net: { fetch: netFetchMock } }))
 
 import {
+  collectLiveAgyLogEndpoints,
   fetchAntigravityRateLimits,
   parseAgyLogEndpoint,
   parseAgyQuotaSummary,
@@ -99,6 +100,22 @@ I0730 16:55:25.554099 27262 server.go:568] Language server listening on random p
         { pid: 27451, port: 50610, csrfToken: 'csrf-token' }
       ])
     ).toEqual([{ pid: 27451, port: 50610, csrfToken: 'csrf-token' }])
+  })
+
+  it('keeps valid log endpoints when another selected log disappears', async () => {
+    const readLog = vi.fn(async (name: string) => {
+      if (name === 'removed.log') {
+        throw new Error('ENOENT')
+      }
+      return `
+I0730 16:55:25.550727 27262 server.go:1424] Starting language server process with pid 27262
+I0730 16:55:25.554099 27262 server.go:568] Language server listening on random port at 50590 for HTTP
+`
+    })
+
+    await expect(
+      collectLiveAgyLogEndpoints(['removed.log', 'active.log'], readLog, () => true)
+    ).resolves.toEqual([{ pid: 27262, port: 50590, csrfToken: null }])
   })
 })
 

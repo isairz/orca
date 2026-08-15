@@ -136,6 +136,25 @@ export function parseCsrfToken(commandLine: string): string | null {
   return commandLine.match(/(?:^|\s)--csrf_token(?:=|\s+)([^\s]+)/)?.[1] ?? null
 }
 
+export async function collectLiveAgyLogEndpoints(
+  names: string[],
+  readLog: (name: string) => Promise<string>,
+  processAlive: (pid: number) => boolean = isProcessAlive
+): Promise<AgyQuotaEndpoint[]> {
+  const endpoints: AgyQuotaEndpoint[] = []
+  for (const name of names) {
+    try {
+      const endpoint = parseAgyLogEndpoint(await readLog(name))
+      if (endpoint && processAlive(endpoint.pid)) {
+        endpoints.push(endpoint)
+      }
+    } catch {
+      continue
+    }
+  }
+  return endpoints
+}
+
 async function discoverLogEndpoints(): Promise<AgyQuotaEndpoint[]> {
   try {
     const names = (await readdir(AGY_LOG_DIR))
@@ -143,14 +162,7 @@ async function discoverLogEndpoints(): Promise<AgyQuotaEndpoint[]> {
       .sort()
       .toReversed()
       .slice(0, 8)
-    const endpoints: AgyQuotaEndpoint[] = []
-    for (const name of names) {
-      const endpoint = parseAgyLogEndpoint(await readFilePrefix(path.join(AGY_LOG_DIR, name)))
-      if (endpoint && isProcessAlive(endpoint.pid)) {
-        endpoints.push(endpoint)
-      }
-    }
-    return endpoints
+    return collectLiveAgyLogEndpoints(names, (name) => readFilePrefix(path.join(AGY_LOG_DIR, name)))
   } catch {
     return []
   }

@@ -128,7 +128,10 @@ export function normalizeImageTranscriptMessages(
       normalized ??= messages.slice(0, index)
       normalized.push({
         ...message,
-        blocks: [...imageRefBlocks(nextImagePaths), ...stripImagePromptMarkersFromTextBlocks(message.blocks)]
+        blocks: [
+          ...imageRefBlocks(nextImagePaths),
+          ...stripImagePromptMarkersFromTextBlocks(message.blocks)
+        ]
       })
       index += 1
       continue
@@ -169,7 +172,7 @@ export function normalizeImageTranscriptMessages(
       }
       normalized.push({
         ...message,
-        blocks: imageRefBlocks(imagePaths)
+        blocks: imageRefBlocks(currentImagePaths)
       })
       continue
     }

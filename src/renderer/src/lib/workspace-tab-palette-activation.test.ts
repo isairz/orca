@@ -102,6 +102,7 @@ function makeResult(
     worktreeId: 'wt-1',
     groupId: 'group-1',
     contentType: 'terminal',
+    occupantAgent: null,
     title: 'Terminal',
     secondaryText: '',
     repoName: 'repo/orca',
@@ -117,6 +118,7 @@ function makeResult(
     score: 0,
     qualityClass: null,
     rank: null,
+    lastActiveAt: null,
     ...overrides
   }
 }

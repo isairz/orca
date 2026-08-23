@@ -1,8 +1,8 @@
-import { execFile } from 'node:child_process'
 import { open, readdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { net } from 'electron'
+import { runProcess } from '../../shared/child-process/run-process'
 import type { ProviderRateLimits } from '../../shared/rate-limit-types'
 import {
   deduplicateAgyQuotaEndpoints,
@@ -47,26 +47,17 @@ function result(
   }
 }
 
-function runCommand(command: string, args: string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      command,
-      args,
-      {
-        encoding: 'utf8',
-        timeout: COMMAND_TIMEOUT_MS,
-        windowsHide: true,
-        maxBuffer: 2 * 1024 * 1024
-      },
-      (error, stdout) => {
-        if (error) {
-          reject(error)
-          return
-        }
-        resolve(stdout)
-      }
-    )
+async function runCommand(command: string, args: string[]): Promise<string> {
+  const commandResult = await runProcess({
+    program: command,
+    args,
+    timeoutMs: COMMAND_TIMEOUT_MS,
+    maxOutputBytes: 2 * 1024 * 1024
   })
+  if (commandResult.code !== 0) {
+    throw new Error(commandResult.stderr || `${command} exited without success`)
+  }
+  return commandResult.stdout
 }
 
 function isProcessAlive(pid: number): boolean {

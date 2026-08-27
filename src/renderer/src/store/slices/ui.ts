@@ -90,6 +90,12 @@ import {
 } from '../../../../shared/browser-page-zoom'
 import { persistedUIValuesEqual } from '../../../../shared/persisted-ui-equality'
 import {
+  ALL_AUTOMATION_HOSTS_FILTER,
+  parsePersistedAutomationHostFilter,
+  toPersistedAutomationHostFilter,
+  type AutomationHostFilter
+} from '../../../../shared/automation-host-filter'
+import {
   normalizeExecutionHostOrder,
   normalizeExecutionHostScope,
   normalizeVisibleExecutionHostIds,
@@ -902,6 +908,9 @@ export type UISlice = {
   setVisibleWorkspaceHostIds: (ids: VisibleWorkspaceHostIds) => void
   workspaceHostOrder: WorkspaceHostOrder
   setWorkspaceHostOrder: (ids: WorkspaceHostOrder) => void
+  /** Automations page host filter, in stable form. Never written from an unhydrated catalog. */
+  automationHostFilter: AutomationHostFilter
+  setAutomationHostFilter: (filter: AutomationHostFilter) => void
   manualRepoOrder: ManualRepoOrderEntry[]
   hideDefaultBranchWorkspace: boolean
   setHideDefaultBranchWorkspace: (v: boolean) => void
@@ -2121,6 +2130,13 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     set({ workspaceHostOrder })
     window.api.ui.set({ workspaceHostOrder }).catch(console.error)
   },
+  automationHostFilter: ALL_AUTOMATION_HOSTS_FILTER,
+  setAutomationHostFilter: (filter) => {
+    window.api.ui
+      .set({ automationHostFilter: toPersistedAutomationHostFilter(filter) })
+      .catch(console.error)
+    set({ automationHostFilter: filter })
+  },
   manualRepoOrder: [],
 
   hideDefaultBranchWorkspace: false,
@@ -2540,6 +2556,8 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         workspaceHostScope: normalizeExecutionHostScope(ui.workspaceHostScope),
         visibleWorkspaceHostIds: normalizeHydratedVisibleWorkspaceHostIds(ui),
         workspaceHostOrder: normalizeExecutionHostOrder(ui.workspaceHostOrder),
+        // Why: a malformed or legacy filter value must degrade to All hosts, never throw during hydration.
+        automationHostFilter: parsePersistedAutomationHostFilter(ui.automationHostFilter),
         manualRepoOrder,
         // Why: apply the desktop-owned overlay immediately since UI state can arrive after a catalog or from another client.
         repos: orderedRepos,
@@ -2642,7 +2660,11 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         // Why the normalizer rather than a cast: this blob is hand-editable and
         // may come from an older or newer build; it degrades field by field
         // instead of bricking the cleanup dialog.
-        workspaceCleanupBrowse: normalizeWorkspaceCleanupBrowseState(ui.workspaceCleanup?.browse),
+        // Why: a sync broadcast can carry stale browse state while its writer is debounced.
+        workspaceCleanupBrowse:
+          source === 'startup'
+            ? normalizeWorkspaceCleanupBrowseState(ui.workspaceCleanup?.browse)
+            : s.workspaceCleanupBrowse,
         // Why: restore only on startup; on 'sync' broadcasts it would clobber the window's current per-window view.
         activeView:
           source === 'startup'

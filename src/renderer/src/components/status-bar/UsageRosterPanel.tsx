@@ -35,13 +35,14 @@ function providerMaxUsed(sections: UsageSection[]): number {
     : 0
 }
 
-// Named buckets keep their model or pool name; summary windows use their duration.
+// Antigravity compact summaries use reset duration; other named buckets keep their name.
 function shortLabel(
   p: ProviderRateLimits,
   section: UsageSection,
   useRemainingDuration = false
 ): string {
-  if (p.buckets?.some((b) => b.name === section.label)) {
+  const isNamedBucket = p.buckets?.some((b) => b.name === section.label)
+  if (isNamedBucket && !(p.provider === 'antigravity' && useRemainingDuration)) {
     return section.label
   }
   // fableWeekly shares the 7d window with weekly; label it distinctly so the two

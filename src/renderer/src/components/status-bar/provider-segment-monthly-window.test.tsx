@@ -43,6 +43,26 @@ function grokMonthlyLimits(status: ProviderRateLimits['status']): ProviderRateLi
   }
 }
 
+function antigravityBucketLimits(tightestResetsAt: number): ProviderRateLimits {
+  return {
+    provider: 'antigravity',
+    session: windowOf(40, 300),
+    weekly: windowOf(90, 10_080, tightestResetsAt),
+    buckets: [
+      { ...windowOf(20, 300), name: 'Gemini Models · 5h' },
+      { ...windowOf(60, 10_080), name: 'Gemini Models · 7d' },
+      { ...windowOf(40, 300), name: 'Claude and GPT models · 5h' },
+      {
+        ...windowOf(90, 10_080, tightestResetsAt),
+        name: 'Claude and GPT models · 7d'
+      }
+    ],
+    updatedAt: Date.now(),
+    error: null,
+    status: 'ok'
+  }
+}
+
 describe('ProviderSegment monthly window', () => {
   it('renders a monthly-only snapshot in the chip instead of a bare icon', async () => {
     const { ProviderSegment } = await import('./StatusBar')
@@ -140,6 +160,27 @@ describe('ProviderSegment monthly window', () => {
       // The consolidated footer intentionally renders only the tightest window.
       expect(markup).not.toContain('10% used')
       expect(markup).not.toContain('wk')
+    } finally {
+      dateNow.mockRestore()
+    }
+  })
+
+  it('shows the Antigravity tightest-pool reset countdown on the compact chip', async () => {
+    const { ProviderSegment } = await import('./StatusBar')
+    const now = 1_700_000_000_000
+    const dateNow = vi.spyOn(Date, 'now').mockReturnValue(now)
+    try {
+      const markup = renderToStaticMarkup(
+        <ProviderSegment
+          p={antigravityBucketLimits(now + 43 * 60_000)}
+          compact={false}
+          display="used"
+          mode="compact"
+        />
+      )
+
+      expect(markup).toContain('90% used 43m')
+      expect(markup).not.toContain('Claude and GPT models · 7d')
     } finally {
       dateNow.mockRestore()
     }

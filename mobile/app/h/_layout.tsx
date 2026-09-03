@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, StyleSheet, PanResponder } from 'react-native'
 import { Stack, useGlobalSearchParams, usePathname } from 'expo-router'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors } from '../../src/theme/mobile-theme'
 import { useResponsiveLayout } from '../../src/layout/responsive-layout'
 import { getHostSidebarPresentation } from '../../src/layout/host-sidebar-presentation'
@@ -66,7 +65,6 @@ export default function HostGroupLayout() {
   const { isWideLayout, width: windowWidth } = useResponsiveLayout()
   const { hostId, action } = useGlobalSearchParams<{ hostId?: string; action?: string }>()
   const pathname = usePathname()
-  const insets = useSafeAreaInsets()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(HOST_SIDEBAR_DEFAULT_WIDTH)
 
@@ -157,7 +155,7 @@ export default function HostGroupLayout() {
           </View>
         ) : null}
         {sidebarPresentation === 'reveal' ? (
-          <View style={[styles.revealTab, { paddingLeft: insets.left }]}>
+          <View style={styles.revealTab}>
             <HostSidebarToggleButton expanded={false} onPress={revealSidebar} />
           </View>
         ) : null}
@@ -182,9 +180,9 @@ const styles = StyleSheet.create({
   revealTab: {
     position: 'absolute',
     left: 0,
-    top: '50%',
+    // Keep the control above a landscape phone's side-mounted camera island.
+    top: '25%',
     transform: [{ translateY: -16 }],
-    backgroundColor: colors.bgPanel,
     zIndex: 20,
     elevation: 20
   },

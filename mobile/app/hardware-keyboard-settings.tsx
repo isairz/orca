@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -33,6 +33,7 @@ export default function HardwareKeyboardSettingsScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets()
   const preferences = useMobileHardwareKeyboardPreferences()
   const [policyPickerOpen, setPolicyPickerOpen] = useState(false)
+  const [policySaveError, setPolicySaveError] = useState<string | null>(null)
   const platform = Platform.OS === 'ios' ? 'darwin' : 'linux'
   const groups = useMemo(() => {
     const result = new Map<string, (typeof MOBILE_HARDWARE_KEYBOARD_ACTIONS)[number][]>()
@@ -49,6 +50,15 @@ export default function HardwareKeyboardSettingsScreen(): React.JSX.Element {
     POLICY_OPTIONS.find((option) => option.value === preferences.terminalShortcutPolicy)?.label ??
     POLICY_OPTIONS[0]!.label
 
+  const handlePolicySelect = useCallback(async (value: TerminalShortcutPolicy) => {
+    setPolicySaveError(null)
+    try {
+      await saveMobileTerminalShortcutPolicy(value)
+    } catch {
+      setPolicySaveError('Could not save keyboard preference. Try again.')
+    }
+  }, [])
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.topRow}>
@@ -58,7 +68,10 @@ export default function HardwareKeyboardSettingsScreen(): React.JSX.Element {
         <Text style={styles.heading}>Hardware Keyboard</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.groupHeading}>TERMINAL</Text>
         <Text style={styles.groupDescription}>
           Choose whether Orca navigation or the shell owns conflicting shortcuts.
@@ -75,6 +88,7 @@ export default function HardwareKeyboardSettingsScreen(): React.JSX.Element {
             <ChevronRight size={16} color={colors.textMuted} />
           </Pressable>
         </View>
+        {policySaveError ? <Text style={styles.error}>{policySaveError}</Text> : null}
 
         {groups.map(([group, actionIds]) => (
           <View key={group} style={styles.shortcutGroup}>
@@ -109,7 +123,7 @@ export default function HardwareKeyboardSettingsScreen(): React.JSX.Element {
         title="Shortcuts in terminal"
         options={POLICY_OPTIONS}
         selected={preferences.terminalShortcutPolicy}
-        onSelect={(value) => void saveMobileTerminalShortcutPolicy(value)}
+        onSelect={(value) => void handlePolicySelect(value)}
         onClose={() => setPolicyPickerOpen(false)}
       />
     </View>
@@ -141,9 +155,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary
   },
-  scrollContent: {
-    paddingBottom: spacing.xl
-  },
   groupHeading: {
     fontSize: 11,
     fontWeight: '600',
@@ -156,6 +167,12 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySize - 1,
     color: colors.textSecondary,
     lineHeight: 20,
+    paddingHorizontal: spacing.xs
+  },
+  error: {
+    color: colors.statusRed,
+    fontSize: typography.metaSize,
+    marginTop: spacing.sm,
     paddingHorizontal: spacing.xs
   },
   section: {

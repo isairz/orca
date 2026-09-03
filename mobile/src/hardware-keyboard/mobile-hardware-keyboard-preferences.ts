@@ -42,8 +42,8 @@ export function loadMobileHardwareKeyboardPreferences(): Promise<void> {
 export async function saveMobileTerminalShortcutPolicy(
   terminalShortcutPolicy: TerminalShortcutPolicy
 ): Promise<void> {
-  publish({ loaded: true, terminalShortcutPolicy })
   await AsyncStorage.setItem(TERMINAL_POLICY_KEY, terminalShortcutPolicy)
+  publish({ loaded: true, terminalShortcutPolicy })
 }
 
 function publish(next: MobileHardwareKeyboardPreferences): void {

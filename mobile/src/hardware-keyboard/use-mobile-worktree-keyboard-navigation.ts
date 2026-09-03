@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { HardwareKeyboardCommandEvent } from '@orca/expo-hardware-keyboard-navigation'
 import type { Router } from 'expo-router'
+import type { KeybindingContext } from '../../../src/shared/keybindings'
 import { getLastCachedWorktrees, setCachedWorktrees } from '../cache/worktree-cache'
 import type { RpcClient } from '../transport/rpc-client'
 import type { ConnectionState } from '../transport/types'
@@ -17,23 +18,29 @@ import {
 export function useMobileWorktreeKeyboardNavigation(options: {
   client: RpcClient | null
   connState: ConnectionState
+  context: KeybindingContext
   hostId: string | undefined
   orderedWorktrees?: readonly Worktree[]
   router: Router
   worktreeId: string | undefined
 }): void {
-  const { client, connState, hostId, orderedWorktrees, router, worktreeId } = options
+  const { client, connState, context, hostId, orderedWorktrees, router, worktreeId } = options
   const [worktrees, setWorktrees] = useState<Worktree[]>(() => cachedWorktrees(hostId))
   const catalogRef = useRef(new WorktreeCatalogSnapshotClient())
   const historyRef = useRef(new MobileWorktreeNavigationHistory())
   const worktreesRef = useRef(worktrees)
+  const routeRef = useRef({ client, hostId })
   worktreesRef.current = worktrees
+  routeRef.current = { client, hostId }
 
   const refresh = useCallback(async (): Promise<Worktree[]> => {
     if (!client || connState !== 'connected' || !hostId) {
       return worktreesRef.current
     }
     const result = await catalogRef.current.fetch(client, hostId).catch(() => null)
+    if (routeRef.current.client !== client || routeRef.current.hostId !== hostId) {
+      return worktreesRef.current
+    }
     if (!result || result.kind !== 'response') {
       return worktreesRef.current
     }
@@ -114,7 +121,7 @@ export function useMobileWorktreeKeyboardNavigation(options: {
 
   useMobileHardwareKeyboardCommands({
     actionIds: MOBILE_WORKTREE_KEYBOARD_ACTIONS,
-    context: 'app',
+    context,
     onCommand: handleCommand
   })
 }

@@ -59,6 +59,10 @@ describe('mobile hardware keyboard bindings', () => {
     })
 
     expect(commands.some((command) => command.actionId === 'tab.nextAllTypes')).toBe(false)
+    expect(commands.some((command) => command.actionId === 'worktree.navigateUp')).toBe(false)
+    expect(commands.some((command) => command.actionId === 'worktree.navigateDown')).toBe(false)
+    expect(commands.some((command) => command.actionId === 'worktree.palette')).toBe(false)
+    expect(commands.some((command) => command.actionId === 'workspace.selectByIndex')).toBe(false)
     expect(commands.some((command) => command.actionId === 'tab.nextTerminal')).toBe(true)
     expect(commands.some((command) => command.actionId === 'worktree.history.back')).toBe(true)
   })

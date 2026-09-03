@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, StyleSheet, PanResponder } from 'react-native'
 import { Stack, useGlobalSearchParams, usePathname } from 'expo-router'
-import { colors } from '../../src/theme/mobile-theme'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { colors, spacing } from '../../src/theme/mobile-theme'
 import { useResponsiveLayout } from '../../src/layout/responsive-layout'
 import {
   HOST_SIDEBAR_DEFAULT_WIDTH,
@@ -11,11 +12,13 @@ import {
   saveHostSidebarWidth
 } from '../../src/storage/preferences'
 import { HostProtocolGate } from '../../src/components/HostProtocolGate'
+import { HostSidebarToggleButton } from '../../src/components/HostSidebarToggleButton'
 import { HostScreen } from './[hostId]/index'
 
 // Keep at least this much room for the detail pane when resizing the sidebar.
 const MIN_DETAIL_WIDTH = 320
 const RESIZE_EDGE_WIDTH = 24
+const REVEAL_RAIL_WIDTH = 40
 
 // Clamp a sidebar width to the bounds and to the current window, so a width
 // saved on a larger device can't starve the detail pane on a narrower one.
@@ -63,6 +66,7 @@ export default function HostGroupLayout() {
   const { isWideLayout, width: windowWidth } = useResponsiveLayout()
   const { hostId, action } = useGlobalSearchParams<{ hostId?: string; action?: string }>()
   const pathname = usePathname()
+  const insets = useSafeAreaInsets()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(HOST_SIDEBAR_DEFAULT_WIDTH)
 
@@ -94,13 +98,11 @@ export default function HostGroupLayout() {
   }, [windowWidth])
 
   const hideSidebar = useCallback(() => setSidebarOpen(false), [])
+  const revealSidebar = useCallback(() => setSidebarOpen(true), [])
   const showSidebar = isWideLayout && !!hostId
   const detailHasContent = !!hostId && pathname !== `/h/${hostId}`
   const canCollapseSidebar = showSidebar && detailHasContent
 
-  // Why: there is no reveal button — navigating Back to the base host route brings
-  // the sidebar back (and that route's detail pane is only a placeholder, so a
-  // hidden sidebar would leave nothing useful).
   useEffect(() => {
     if (showSidebar && !detailHasContent) {
       setSidebarOpen(true)
@@ -153,6 +155,20 @@ export default function HostGroupLayout() {
             <View style={styles.resizeHandle} {...resizer.panHandlers} />
           </View>
         ) : null}
+        {showSidebar && !sidebarOpen ? (
+          <View
+            style={[
+              styles.revealRail,
+              {
+                width: REVEAL_RAIL_WIDTH + insets.left,
+                paddingLeft: insets.left,
+                paddingTop: insets.top + spacing.xs
+              }
+            ]}
+          >
+            <HostSidebarToggleButton expanded={false} onPress={revealSidebar} />
+          </View>
+        ) : null}
         <View style={styles.detail}>
           <HostStack animation={showSidebar ? 'none' : 'default'} />
         </View>
@@ -168,6 +184,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgBase
   },
   sidebar: {
+    borderRightWidth: 1,
+    borderRightColor: colors.borderSubtle
+  },
+  revealRail: {
+    alignItems: 'center',
+    backgroundColor: colors.bgPanel,
     borderRightWidth: 1,
     borderRightColor: colors.borderSubtle
   },

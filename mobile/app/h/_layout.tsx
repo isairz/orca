@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, StyleSheet, PanResponder } from 'react-native'
 import { Stack, useGlobalSearchParams, usePathname } from 'expo-router'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { colors, spacing } from '../../src/theme/mobile-theme'
+import { colors } from '../../src/theme/mobile-theme'
 import { useResponsiveLayout } from '../../src/layout/responsive-layout'
+import { getHostSidebarPresentation } from '../../src/layout/host-sidebar-presentation'
 import {
   HOST_SIDEBAR_DEFAULT_WIDTH,
   HOST_SIDEBAR_MAX_WIDTH,
@@ -18,7 +18,6 @@ import { HostScreen } from './[hostId]/index'
 // Keep at least this much room for the detail pane when resizing the sidebar.
 const MIN_DETAIL_WIDTH = 320
 const RESIZE_EDGE_WIDTH = 24
-const REVEAL_RAIL_WIDTH = 40
 
 // Clamp a sidebar width to the bounds and to the current window, so a width
 // saved on a larger device can't starve the detail pane on a narrower one.
@@ -66,7 +65,6 @@ export default function HostGroupLayout() {
   const { isWideLayout, width: windowWidth } = useResponsiveLayout()
   const { hostId, action } = useGlobalSearchParams<{ hostId?: string; action?: string }>()
   const pathname = usePathname()
-  const insets = useSafeAreaInsets()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(HOST_SIDEBAR_DEFAULT_WIDTH)
 
@@ -102,6 +100,7 @@ export default function HostGroupLayout() {
   const showSidebar = isWideLayout && !!hostId
   const detailHasContent = !!hostId && pathname !== `/h/${hostId}`
   const canCollapseSidebar = showSidebar && detailHasContent
+  const sidebarPresentation = getHostSidebarPresentation(showSidebar, detailHasContent, sidebarOpen)
 
   useEffect(() => {
     if (showSidebar && !detailHasContent) {
@@ -143,7 +142,7 @@ export default function HostGroupLayout() {
   return (
     <HostProtocolGate hostId={hostId}>
       <View style={styles.row}>
-        {showSidebar && sidebarOpen ? (
+        {sidebarPresentation === 'sidebar' ? (
           <View style={[styles.sidebar, { width: sidebarWidth }]}>
             <HostScreen
               embedded
@@ -155,17 +154,8 @@ export default function HostGroupLayout() {
             <View style={styles.resizeHandle} {...resizer.panHandlers} />
           </View>
         ) : null}
-        {showSidebar && !sidebarOpen ? (
-          <View
-            style={[
-              styles.revealRail,
-              {
-                width: REVEAL_RAIL_WIDTH + insets.left,
-                paddingLeft: insets.left,
-                paddingTop: insets.top + spacing.xs
-              }
-            ]}
-          >
+        {sidebarPresentation === 'reveal' ? (
+          <View style={styles.revealTab}>
             <HostSidebarToggleButton expanded={false} onPress={revealSidebar} />
           </View>
         ) : null}
@@ -187,11 +177,13 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: colors.borderSubtle
   },
-  revealRail: {
-    alignItems: 'center',
-    backgroundColor: colors.bgPanel,
-    borderRightWidth: 1,
-    borderRightColor: colors.borderSubtle
+  revealTab: {
+    position: 'absolute',
+    left: 0,
+    top: '50%',
+    transform: [{ translateY: -16 }],
+    zIndex: 20,
+    elevation: 20
   },
   // Invisible grab strip over the sidebar's right edge. Absolute + elevated so it
   // sits above the worktree list and reliably owns the drag on Android.

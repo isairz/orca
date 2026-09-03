@@ -42,7 +42,10 @@ const styles = StyleSheet.create({
   revealButton: {
     backgroundColor: colors.bgPanel,
     borderWidth: 1,
-    borderColor: colors.borderSubtle
+    borderColor: colors.borderSubtle,
+    borderLeftWidth: 0,
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0
   },
   buttonPressed: {
     backgroundColor: colors.bgRaised

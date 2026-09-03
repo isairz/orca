@@ -23,8 +23,8 @@ type HardwareKeyboardNavigationEvents = {
 }
 
 declare class HardwareKeyboardNavigationNativeModule extends NativeModule<HardwareKeyboardNavigationEvents> {
-  setCommands(commands: HardwareKeyboardNativeCommand[]): void
-  isHardwareKeyboardConnected(): boolean
+  setCommands?(commands: HardwareKeyboardNativeCommand[]): void
+  isHardwareKeyboardConnected?(): boolean
 }
 
 const nativeModule = requireOptionalNativeModule<HardwareKeyboardNavigationNativeModule>(
@@ -32,11 +32,15 @@ const nativeModule = requireOptionalNativeModule<HardwareKeyboardNavigationNativ
 )
 
 export function setHardwareKeyboardCommands(commands: HardwareKeyboardNativeCommand[]): void {
-  nativeModule?.setCommands(commands)
+  if (typeof nativeModule?.setCommands === 'function') {
+    nativeModule.setCommands(commands)
+  }
 }
 
 export function isHardwareKeyboardConnected(): boolean {
-  return nativeModule?.isHardwareKeyboardConnected() ?? false
+  return typeof nativeModule?.isHardwareKeyboardConnected === 'function'
+    ? nativeModule.isHardwareKeyboardConnected()
+    : false
 }
 
 export function addHardwareKeyboardCommandListener(

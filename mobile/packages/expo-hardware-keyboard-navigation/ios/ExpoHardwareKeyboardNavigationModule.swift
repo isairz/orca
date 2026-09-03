@@ -14,12 +14,17 @@ struct HardwareKeyboardCommandRecord: Record {
   @Field var shift: Bool = false
 }
 
+private struct HardwareKeyboardCommandIdentity: Hashable {
+  let input: String
+  let modifierFlags: Int
+}
+
 @MainActor
 private final class HardwareKeyboardCommandRegistry {
   static let shared = HardwareKeyboardCommandRegistry()
 
   private weak var controller: UIViewController?
-  private var commandPayloads: [ObjectIdentifier: [String: String]] = [:]
+  private var commandPayloads: [HardwareKeyboardCommandIdentity: [String: String]] = [:]
   private var installedCommands: [UIKeyCommand] = []
   var handler: (([String: String]) -> Void)?
 
@@ -37,7 +42,10 @@ private final class HardwareKeyboardCommandRegistry {
   }
 
   func handle(_ command: UIKeyCommand) {
-    guard let payload = commandPayloads[ObjectIdentifier(command)] else { return }
+    guard
+      let identity = commandIdentity(input: command.input, modifierFlags: command.modifierFlags),
+      let payload = commandPayloads[identity]
+    else { return }
     handler?(payload)
   }
 
@@ -60,8 +68,21 @@ private final class HardwareKeyboardCommandRegistry {
     command.wantsPriorityOverSystemBehavior = true
     command.allowsAutomaticLocalization = false
     command.allowsAutomaticMirroring = false
-    commandPayloads[ObjectIdentifier(command)] = ["actionId": record.actionId, "key": record.key]
+    guard let identity = commandIdentity(input: input, modifierFlags: modifiers) else { return nil }
+    commandPayloads[identity] = ["actionId": record.actionId, "key": record.key]
     return command
+  }
+
+  private func commandIdentity(
+    input: String?,
+    modifierFlags: UIKeyModifierFlags
+  ) -> HardwareKeyboardCommandIdentity? {
+    guard let input else { return nil }
+    let trackedModifiers: UIKeyModifierFlags = [.control, .command, .alternate, .shift]
+    return HardwareKeyboardCommandIdentity(
+      input: input,
+      modifierFlags: modifierFlags.intersection(trackedModifiers).rawValue
+    )
   }
 
   private func keyInput(_ key: String) -> String? {

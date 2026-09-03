@@ -17,6 +17,7 @@ import {
   applyWorktreeRowDisplayState,
   getWorktreeRowIdentity
 } from '../worktree/worktree-host-row-identity'
+import { applyWorktreeHostContextLabels } from '../worktree/worktree-host-context-labels'
 import { useWorkspaceSections } from '../worktree/use-workspace-sections'
 import type { Worktree } from '../worktree/workspace-list-sections'
 import { useHostRepoMetadata } from './use-host-repo-metadata'
@@ -111,10 +112,19 @@ export function useHostScreenController({
     const routeSelected = embedded
       ? base.find((worktree) => worktree.worktreeId === selectedWorktreeId)
       : undefined
-    return applyWorktreeRowDisplayState(
-      base,
-      state.sleptIds,
-      routeSelected ? getWorktreeRowIdentity(routeSelected) : state.optimisticActiveWorktreeIdentity
+    return applyWorktreeHostContextLabels(
+      applyWorktreeRowDisplayState(
+        base,
+        state.sleptIds,
+        routeSelected
+          ? getWorktreeRowIdentity(routeSelected)
+          : state.optimisticActiveWorktreeIdentity
+      ),
+      {
+        repoHostIdByRepoId: state.repoHostIdByRepoId,
+        hostLabelById: state.hostLabelById,
+        hostPlatform: state.hostPlatform
+      }
     )
   }, [
     connState,
@@ -123,7 +133,10 @@ export function useHostScreenController({
     state.worktrees,
     state.lastKnownWorktrees,
     state.sleptIds,
-    state.optimisticActiveWorktreeIdentity
+    state.optimisticActiveWorktreeIdentity,
+    state.repoHostIdByRepoId,
+    state.hostLabelById,
+    state.hostPlatform
   ])
   const sectionsResult = useWorkspaceSections({
     displayWorktrees,

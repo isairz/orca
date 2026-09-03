@@ -14,6 +14,9 @@ const catalogRuntime = vi.hoisted(() => ({
     resolve: (value: unknown) => void
   }>
 }))
+const keyboardRuntime = vi.hoisted(() => ({
+  onCommand: null as null | ((event: { actionId: string; key: string }) => void)
+}))
 
 vi.mock('../cache/worktree-cache', () => ({
   getLastCachedWorktrees: vi.fn(),
@@ -33,7 +36,11 @@ vi.mock('../worktree/worktree-catalog-snapshot-client', () => ({
 }))
 
 vi.mock('./use-mobile-hardware-keyboard-commands', () => ({
-  useMobileHardwareKeyboardCommands: vi.fn()
+  useMobileHardwareKeyboardCommands: (options: {
+    onCommand: (event: { actionId: string; key: string }) => void
+  }) => {
+    keyboardRuntime.onCommand = options.onCommand
+  }
 }))
 
 function worktree(worktreeId: string): Worktree {
@@ -53,11 +60,27 @@ function worktree(worktreeId: string): Worktree {
   }
 }
 
+function catalogRequest(hostId: string, index = 0) {
+  const request = catalogRuntime.requests.filter((candidate) => candidate.hostId === hostId)[index]
+  if (!request) {
+    throw new Error(`Missing catalog request ${hostId}:${index}`)
+  }
+  return request
+}
+
+function keyboardCommandHandler() {
+  if (!keyboardRuntime.onCommand) {
+    throw new Error('Missing keyboard command handler')
+  }
+  return keyboardRuntime.onCommand
+}
+
 describe('useMobileWorktreeKeyboardNavigation', () => {
   let renderer: ReactTestRenderer | null = null
 
   beforeEach(() => {
     catalogRuntime.requests = []
+    keyboardRuntime.onCommand = null
     vi.mocked(getLastCachedWorktrees).mockReset().mockReturnValue(null)
     vi.mocked(setCachedWorktrees).mockReset()
   })
@@ -92,10 +115,10 @@ describe('useMobileWorktreeKeyboardNavigation', () => {
       await Promise.resolve()
     })
 
-    const firstRequest = catalogRuntime.requests.find((request) => request.hostId === 'host-a')
-    const secondRequest = catalogRuntime.requests.find((request) => request.hostId === 'host-b')
+    const firstRequest = catalogRequest('host-a')
+    const secondRequest = catalogRequest('host-b')
     await act(async () => {
-      firstRequest?.resolve({
+      firstRequest.resolve({
         kind: 'response',
         pending: { worktrees: [worktree('worktree-a')] }
       })
@@ -107,7 +130,7 @@ describe('useMobileWorktreeKeyboardNavigation', () => {
     })
 
     await act(async () => {
-      secondRequest?.resolve({
+      secondRequest.resolve({
         kind: 'response',
         pending: { worktrees: [worktree('worktree-b')] }
       })
@@ -117,5 +140,46 @@ describe('useMobileWorktreeKeyboardNavigation', () => {
     expect(setCachedWorktrees).toHaveBeenCalledWith('host-b', [worktree('worktree-b')], {
       proven: true
     })
+  })
+
+  it('cancels a pending navigation command when the route changes', async () => {
+    const firstClient = {} as RpcClient
+    const secondClient = {} as RpcClient
+    const router = { replace: vi.fn() } as unknown as Router
+    vi.mocked(getLastCachedWorktrees).mockImplementation((hostId) =>
+      hostId === 'host-b' ? [worktree('worktree-b')] : null
+    )
+
+    function Harness(props: { client: RpcClient; hostId: string }): null {
+      useMobileWorktreeKeyboardNavigation({
+        ...props,
+        connState: 'connected',
+        context: 'app',
+        router,
+        worktreeId: undefined
+      })
+      return null
+    }
+
+    await act(async () => {
+      renderer = create(createElement(Harness, { client: firstClient, hostId: 'host-a' }))
+      await Promise.resolve()
+    })
+    act(() => keyboardCommandHandler()({ actionId: 'worktree.navigateDown', key: 'ArrowDown' }))
+    const pendingCommand = catalogRequest('host-a', 1)
+
+    await act(async () => {
+      renderer?.update(createElement(Harness, { client: secondClient, hostId: 'host-b' }))
+      await Promise.resolve()
+    })
+    await act(async () => {
+      pendingCommand.resolve({
+        kind: 'response',
+        pending: { worktrees: [worktree('worktree-a')] }
+      })
+      await Promise.resolve()
+    })
+
+    expect(router.replace).not.toHaveBeenCalled()
   })
 })

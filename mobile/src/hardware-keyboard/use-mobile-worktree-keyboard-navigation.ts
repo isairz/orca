@@ -29,17 +29,20 @@ export function useMobileWorktreeKeyboardNavigation(options: {
   const catalogRef = useRef(new WorktreeCatalogSnapshotClient())
   const historyRef = useRef(new MobileWorktreeNavigationHistory())
   const worktreesRef = useRef(worktrees)
-  const routeRef = useRef({ client, hostId })
+  const routeRef = useRef({ client, hostId, generation: 0 })
   worktreesRef.current = worktrees
-  routeRef.current = { client, hostId }
+  if (routeRef.current.client !== client || routeRef.current.hostId !== hostId) {
+    routeRef.current = { client, hostId, generation: routeRef.current.generation + 1 }
+  }
 
-  const refresh = useCallback(async (): Promise<Worktree[]> => {
+  const refresh = useCallback(async (): Promise<Worktree[] | null> => {
     if (!client || connState !== 'connected' || !hostId) {
       return worktreesRef.current
     }
+    const routeGeneration = routeRef.current.generation
     const result = await catalogRef.current.fetch(client, hostId).catch(() => null)
-    if (routeRef.current.client !== client || routeRef.current.hostId !== hostId) {
-      return worktreesRef.current
+    if (routeRef.current.generation !== routeGeneration) {
+      return null
     }
     if (!result || result.kind !== 'response') {
       return worktreesRef.current
@@ -113,7 +116,11 @@ export function useMobileWorktreeKeyboardNavigation(options: {
       if (worktreesRef.current.length > 0) {
         apply(worktreesRef.current, 'smart')
       } else {
-        void refresh().then((rows) => apply(rows, 'smart'))
+        void refresh().then((rows) => {
+          if (rows) {
+            apply(rows, 'smart')
+          }
+        })
       }
     },
     [hostId, openWorktree, orderedWorktrees, refresh, router, worktreeId]

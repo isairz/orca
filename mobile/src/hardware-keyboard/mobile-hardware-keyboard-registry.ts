@@ -59,9 +59,12 @@ function syncNativeCommands(): void {
   const platform = Platform.OS === 'ios' ? 'darwin' : 'linux'
   const commands: HardwareKeyboardNativeCommand[] = []
   const seen = new Set<string>()
+  const claimedActionIds = new Set<MobileHardwareKeyboardActionId>()
   for (const scope of [...scopes.values()].toReversed()) {
+    const actionIds = scope.actionIds.filter((actionId) => !claimedActionIds.has(actionId))
+    scope.actionIds.forEach((actionId) => claimedActionIds.add(actionId))
     for (const command of buildMobileHardwareKeyboardCommands({
-      actionIds: scope.actionIds,
+      actionIds,
       context: scope.context,
       platform,
       terminalShortcutPolicy: preferences.terminalShortcutPolicy

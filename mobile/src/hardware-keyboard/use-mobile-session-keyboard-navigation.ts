@@ -9,11 +9,19 @@ import {
   type MobileTabCycleMode
 } from './mobile-tab-keyboard-navigation'
 import { useMobileHardwareKeyboardCommands } from './use-mobile-hardware-keyboard-commands'
+import { usePublishMobileSessionHardwareKeyboardContext } from './mobile-session-hardware-keyboard-context'
 
 export function useMobileSessionKeyboardNavigation(scope: MobileSessionTabSwitchingModel): void {
   const { activeSessionTabId, sessionTabs, switchSessionTab } = scope
   const recentRef = useRef(new MobileRecentTabOrder())
   const activeTab = sessionTabs.find((tab) => tab.id === activeSessionTabId) ?? null
+  const context = activeTab?.type === 'terminal' ? 'terminal' : 'app'
+
+  usePublishMobileSessionHardwareKeyboardContext({
+    context,
+    hostId: scope.hostId,
+    worktreeId: scope.worktreeId
+  })
 
   useEffect(() => {
     if (activeSessionTabId) {
@@ -58,7 +66,7 @@ export function useMobileSessionKeyboardNavigation(scope: MobileSessionTabSwitch
 
   useMobileHardwareKeyboardCommands({
     actionIds: MOBILE_TAB_KEYBOARD_ACTIONS,
-    context: activeTab?.type === 'terminal' ? 'terminal' : 'app',
+    context,
     onCommand: handleCommand
   })
 }

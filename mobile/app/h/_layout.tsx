@@ -14,6 +14,7 @@ import { HostProtocolGate } from '../../src/components/HostProtocolGate'
 import { HostScreen } from './[hostId]/index'
 import { useHostClient } from '../../src/transport/client-context'
 import { useMobileWorktreeKeyboardNavigation } from '../../src/hardware-keyboard/use-mobile-worktree-keyboard-navigation'
+import { useMobileSessionHardwareKeyboardContext } from '../../src/hardware-keyboard/mobile-session-hardware-keyboard-context'
 import type { Worktree } from '../../src/worktree/workspace-list-sections'
 
 // Keep at least this much room for the detail pane when resizing the sidebar.
@@ -118,10 +119,15 @@ export default function HostGroupLayout() {
     },
     [hostId]
   )
+  const sessionKeyboardContext = useMobileSessionHardwareKeyboardContext(
+    pathname.includes('/session/') ? hostId : undefined,
+    pathname.includes('/session/') ? worktreeId : undefined
+  )
 
   useMobileWorktreeKeyboardNavigation({
     client,
     connState,
+    context: sessionKeyboardContext,
     hostId,
     orderedWorktrees:
       showSidebar && sidebarKeyboardCatalog?.hostId === hostId

@@ -86,7 +86,13 @@ export class WorktreeCatalogSnapshotClient {
     }
     const outcome = settlement.outcome
     if (outcome.kind === 'outer-refused') {
-      return { kind: 'request_failed', code: outcome.error.code }
+      return {
+        kind: 'request_failed',
+        code:
+          typeof outcome.error.code === 'string' && outcome.error.code.length > 0
+            ? outcome.error.code
+            : 'request_failed'
+      }
     }
     if (outcome.kind !== 'decoded') {
       return { kind: 'request_failed', code: 'incompatible_response' }
@@ -94,10 +100,7 @@ export class WorktreeCatalogSnapshotClient {
     return {
       kind: 'response',
       pending: {
-        admission: admitWorktreeCatalogResponse<Worktree>(
-          outcome.value,
-          requestedSnapshotId
-        ),
+        admission: admitWorktreeCatalogResponse<Worktree>(outcome.value, requestedSnapshotId),
         client,
         hostId
       }

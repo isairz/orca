@@ -34,7 +34,7 @@ export type HostScreenProps = {
   hostId?: string
   action?: string
   selectedWorktreeId?: string
-  onKeyboardWorktreesChange?: (worktrees: readonly Worktree[]) => void
+  onKeyboardWorktreesChange?: (hostId: string, worktrees: readonly Worktree[]) => void
   onHideSidebar?: () => void
 }
 
@@ -116,7 +116,9 @@ export function useHostScreenController({
       applyWorktreeRowDisplayState(
         base,
         state.sleptIds,
-        routeSelected ? getWorktreeRowIdentity(routeSelected) : state.optimisticActiveWorktreeIdentity
+        routeSelected
+          ? getWorktreeRowIdentity(routeSelected)
+          : state.optimisticActiveWorktreeIdentity
       ),
       {
         repoHostIdByRepoId: state.repoHostIdByRepoId,
@@ -155,8 +157,8 @@ export function useHostScreenController({
     [sectionsResult.sections]
   )
   useEffect(() => {
-    onKeyboardWorktreesChange?.(keyboardWorktrees)
-  }, [keyboardWorktrees, onKeyboardWorktreesChange])
+    onKeyboardWorktreesChange?.(hostId, keyboardWorktrees)
+  }, [hostId, keyboardWorktrees, onKeyboardWorktreesChange])
 
   return {
     actions,

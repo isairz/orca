@@ -8,6 +8,7 @@ import type { Worktree } from '../worktree/workspace-list-sections'
 import { useMobileWorktreeKeyboardNavigation } from './use-mobile-worktree-keyboard-navigation'
 
 const catalogRuntime = vi.hoisted(() => ({
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the hoisted test runtime needs a mutable request queue type.
   requests: [] as Array<{
     client: unknown
     hostId: string
@@ -15,6 +16,7 @@ const catalogRuntime = vi.hoisted(() => ({
   }>
 }))
 const keyboardRuntime = vi.hoisted(() => ({
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the mocked hook starts without a registered handler.
   onCommand: null as null | ((event: { actionId: string; key: string }) => void)
 }))
 
@@ -91,8 +93,11 @@ describe('useMobileWorktreeKeyboardNavigation', () => {
   })
 
   it('does not install a catalog response after the route switches hosts', async () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the test only needs identity-stable client objects.
     const firstClient = {} as RpcClient
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the test only needs identity-stable client objects.
     const secondClient = {} as RpcClient
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the harness exercises replace only.
     const router = { replace: vi.fn() } as unknown as Router
 
     function Harness(props: { client: RpcClient; hostId: string }): null {
@@ -143,8 +148,11 @@ describe('useMobileWorktreeKeyboardNavigation', () => {
   })
 
   it('cancels a pending navigation command when the route changes', async () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the test only needs identity-stable client objects.
     const firstClient = {} as RpcClient
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the test only needs identity-stable client objects.
     const secondClient = {} as RpcClient
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the harness exercises replace only.
     const router = { replace: vi.fn() } as unknown as Router
     vi.mocked(getLastCachedWorktrees).mockImplementation((hostId) =>
       hostId === 'host-b' ? [worktree('worktree-b')] : null

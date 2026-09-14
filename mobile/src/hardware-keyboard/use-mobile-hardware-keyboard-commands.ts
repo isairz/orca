@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { HardwareKeyboardCommandEvent } from '@orca/expo-hardware-keyboard-navigation'
 import type { KeybindingContext } from '../../../src/shared/keybindings'
 import type { MobileHardwareKeyboardActionId } from './mobile-hardware-keyboard-actions'
@@ -10,7 +10,9 @@ export function useMobileHardwareKeyboardCommands(options: {
   onCommand: (event: HardwareKeyboardCommandEvent) => void
 }): void {
   const handlerRef = useRef(options.onCommand)
-  handlerRef.current = options.onCommand
+  useLayoutEffect(() => {
+    handlerRef.current = options.onCommand
+  }, [options.onCommand])
 
   useEffect(
     () =>

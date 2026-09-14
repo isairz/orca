@@ -112,8 +112,8 @@ export default function HostGroupLayout() {
   const detailHasContent = !!hostId && pathname !== `/h/${hostId}`
   const canCollapseSidebar = showSidebar && detailHasContent
   const updateSidebarKeyboardWorktrees = useCallback(
-    (worktrees: readonly Worktree[]) => {
-      if (hostId) {
+    (emittedHostId: string, worktrees: readonly Worktree[]) => {
+      if (hostId && emittedHostId === hostId) {
         setSidebarKeyboardCatalog({ hostId, worktrees })
       }
     },

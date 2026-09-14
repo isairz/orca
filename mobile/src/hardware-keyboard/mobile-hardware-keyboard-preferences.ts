@@ -35,7 +35,10 @@ export function loadMobileHardwareKeyboardPreferences(): Promise<void> {
         terminalShortcutPolicy: stored === 'terminal-first' ? 'terminal-first' : 'orca-first'
       })
     })
-    .catch(() => publish({ ...snapshot, loaded: true }))
+    .catch(() => {
+      publish({ ...snapshot, loaded: true })
+      loadPromise = null
+    })
   return loadPromise
 }
 

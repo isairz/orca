@@ -30,10 +30,19 @@ export function useMobileWorktreeKeyboardNavigation(options: {
   const catalogRef = useRef(new WorktreeCatalogSnapshotClient())
   const historyRef = useRef(new MobileWorktreeNavigationHistory())
   const worktreesRef = useRef(worktrees)
-  const routeRef = useRef({ client, hostId, generation: 0 })
+  const routeRef = useRef({ client, hostId, worktreeId, generation: 0 })
   worktreesRef.current = worktrees
-  if (routeRef.current.client !== client || routeRef.current.hostId !== hostId) {
-    routeRef.current = { client, hostId, generation: routeRef.current.generation + 1 }
+  if (
+    routeRef.current.client !== client ||
+    routeRef.current.hostId !== hostId ||
+    routeRef.current.worktreeId !== worktreeId
+  ) {
+    routeRef.current = {
+      client,
+      hostId,
+      worktreeId,
+      generation: routeRef.current.generation + 1
+    }
   }
 
   const refresh = useCallback(async (): Promise<Worktree[] | null> => {
@@ -78,11 +87,10 @@ export function useMobileWorktreeKeyboardNavigation(options: {
       }
       if (client && connState === 'connected') {
         void runRpcOperation(client, mobileWorktreeActivate, {
-            worktree: `id:${target.worktreeId}`,
-            notifyClients: false,
-            navigation: 'caller'
-          })
-          .catch(() => null)
+          worktree: `id:${target.worktreeId}`,
+          notifyClients: false,
+          navigation: 'caller'
+        }).catch(() => null)
       }
       router.replace(
         `/h/${encodeURIComponent(hostId)}/session/${encodeURIComponent(target.worktreeId)}?name=${encodeURIComponent(target.displayName || target.repo)}`
@@ -161,5 +169,9 @@ function resolveWorktreeCommand(
 }
 
 function cachedWorktrees(hostId: string | undefined): Worktree[] {
-  return hostId ? ((getLastCachedWorktrees(hostId) as Worktree[] | null) ?? []) : []
+  if (!hostId) {
+    return []
+  }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: this cache only stores catalog rows written by this hook.
+  return (getLastCachedWorktrees(hostId) as Worktree[] | null) ?? []
 }

@@ -30,5 +30,5 @@ export type MobileHardwareKeyboardActionId = (typeof MOBILE_HARDWARE_KEYBOARD_AC
 export function isMobileHardwareKeyboardActionId(
   actionId: string
 ): actionId is MobileHardwareKeyboardActionId {
-  return (MOBILE_HARDWARE_KEYBOARD_ACTIONS as readonly string[]).includes(actionId)
+  return MOBILE_HARDWARE_KEYBOARD_ACTIONS.some((action) => action === actionId)
 }

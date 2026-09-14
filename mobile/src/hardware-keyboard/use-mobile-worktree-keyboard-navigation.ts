@@ -5,6 +5,7 @@ import type { KeybindingContext } from '../../../src/shared/keybindings'
 import { getLastCachedWorktrees, setCachedWorktrees } from '../cache/worktree-cache'
 import type { RpcClient } from '../transport/rpc-client'
 import type { ConnectionState } from '../transport/types'
+import { mobileWorktreeActivate, runRpcOperation } from './mobile-worktree-keyboard-rpc-operations'
 import { WorktreeCatalogSnapshotClient } from '../worktree/worktree-catalog-snapshot-client'
 import type { Worktree } from '../worktree/workspace-list-sections'
 import { MOBILE_WORKTREE_KEYBOARD_ACTIONS } from './mobile-hardware-keyboard-actions'
@@ -73,8 +74,7 @@ export function useMobileWorktreeKeyboardNavigation(options: {
         return
       }
       if (client && connState === 'connected') {
-        void client
-          .sendRequest('worktree.activate', {
+        void runRpcOperation(client, mobileWorktreeActivate, {
             worktree: `id:${target.worktreeId}`,
             notifyClients: false,
             navigation: 'caller'
